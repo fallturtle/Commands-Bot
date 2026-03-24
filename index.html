@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Artistry Hub Commands Bot</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+
+<style>
+body {margin:0;font-family:sans-serif;color:white;overflow:hidden;}
+
+canvas {
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  z-index:-1;
+}
+
+/* THEMES */
+body.gradient {
+  background: linear-gradient(135deg,#ff0000,#ff0080,#8a2be2,#00bfff);
+  background-size:300% 300%;
+  animation: gradientMove 10s ease infinite;
+}
+body.dark { background:#0a0a0a; }
+body.light { background:#f5f5f5; color:#111; }
+
+@keyframes gradientMove {
+  0%{background-position:0% 50%;}
+  50%{background-position:100% 50%;}
+  100%{background-position:0% 50%;}
+}
+
+.header {text-align:center;padding:20px;}
+.header h1 {font-size:clamp(22px,5vw,40px);}
+
+/* ✅ RESPONSIVE GRID */
+.container {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+  gap:18px;
+  padding:20px;
+  max-width:900px;
+  margin:auto;
+}
+
+/* BUTTONS */
+.button {
+  height:75px;
+  border:none;
+  border-radius:18px;
+  background:rgba(255,255,255,0.2);
+  color:inherit;
+  font-size:15px;
+  backdrop-filter:blur(12px);
+  cursor:pointer;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 8px 20px rgba(0,0,0,0.4);
+  transition:0.2s;
+}
+
+/* hover only on desktop */
+@media (hover:hover){
+.button:hover {
+  transform:scale(1.05);
+  box-shadow:0 12px 25px rgba(0,0,0,0.5);
+}
+}
+
+.cooldown-bar {
+  position:absolute;
+  top:0; left:0;
+  height:100%;
+  width:0%;
+  background:rgba(255,255,255,0.2);
+}
+
+/* SIDE BUTTONS */
+.side {
+  position:fixed;
+  left:10px;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  z-index:20;
+}
+.side button {
+  width:50px;height:50px;border-radius:50%;
+  border:none;
+  background:rgba(255,255,255,0.15);
+  backdrop-filter:blur(10px);
+  color:inherit;
+  cursor:pointer;
+  transition:0.2s;
+}
+.side button:hover {transform:scale(1.15);}
+
+/* PANELS */
+.panel {
+  position:fixed;
+  left:-100%;
+  top:0;
+  width:80%;
+  max-width:320px;
+  height:100%;
+  background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(12px);
+  padding:20px;
+  transition:left .3s;
+  overflow-y:auto;
+  z-index:30;
+}
+.panel.open { left:0; }
+
+/* STATUS */
+.status {
+  position:fixed;
+  bottom:15px; right:15px;
+  background:black;
+  color:white;
+  padding:10px;
+  border-radius:10px;
+  font-size:14px;
+}
+
+/* POPUP */
+.popup {
+  position:fixed;
+  top:15px; right:15px;
+  background:rgba(0,0,0,0.8);
+  color:white;
+  padding:10px;
+  border-radius:10px;
+  display:none;
+}
+
+/* FOOTER */
+.footer {
+  text-align:center;
+  padding:10px;
+  font-size:12px;
+}
+</style>
+</head>
+
+<body class="gradient">
+
+<canvas id="shader"></canvas>
+
+<div class="header">
+<h1>🎨 Artistry Hub Commands Bot</h1>
+</div>
+
+<div class="side">
+<button onclick="togglePanel('settings')">⚙️</button>
+<button onclick="togglePanel('history')">📜</button>
+<button onclick="togglePanel('errors')">⚠️</button>
+</div>
+
+<div class="container" id="buttons"></div>
+
+<!-- SETTINGS -->
+<div id="settings" class="panel">
+<button onclick="togglePanel('settings')">Close</button>
+<h3>Settings</h3>
+<input id="username" placeholder="Name"><br><br>
+<input id="url" placeholder="Deployment URL"><br><br>
+
+<select id="bgSelect" onchange="applyBG(this.value)">
+<option value="gradient">Gradient</option>
+<option value="dark">Dark</option>
+<option value="light">Light</option>
+<option value="hue">Hue</option>
+<option value="equinox">Equinox</option>
+<option value="interference">Interference</option>
+<option value="boxes">Boxes</option>
+</select>
+
+<br><br>
+<button onclick="saveSettings()">Save</button>
+</div>
+
+<!-- HISTORY -->
+<div id="history" class="panel">
+<button onclick="togglePanel('history')">Close</button>
+<h3>History</h3>
+<div id="historyList"></div>
+</div>
+
+<!-- ERRORS -->
+<div id="errors" class="panel">
+<button onclick="togglePanel('errors')">Close</button>
+<h3>Errors</h3>
+<div id="errorList"></div>
+</div>
+
+<div id="status" class="status">⚪ Idle</div>
+<div id="popup" class="popup">Sent!</div>
+<div class="footer">Artistry Hub © 2026 | Mobile + App Ready</div>
+
+<script>
+// REGISTER PWA (optional but helps install)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+const cmds=["seturl","run","help","deny","random","fact","quote","challenge","riddle","trivia","joke","schedule","word","poll","errors"];
+const labels=["🔧 Set URL","▶ Run","❓ Help","⛔ Deny","🎲 Random","📚 Fact","💬 Quote","🎨 Challenge","🧠 Riddle","❗ Trivia","😂 Joke","📅 Schedule","📖 Word","📊 Poll","⚠️ Errors"];
+
+const container=document.getElementById('buttons');
+
+cmds.forEach((c,i)=>{
+let b=document.createElement('button');
+b.className='button';
+b.innerText=labels[i];
+
+let bar=document.createElement('div');
+bar.className='cooldown-bar';
+b.appendChild(bar);
+
+b.onclick=()=>clickCmd(c,b,bar);
+container.appendChild(b);
+});
+
+function clickCmd(c,b,bar){
+if(c==='seturl') return togglePanel('settings');
+if(c==='errors') return togglePanel('errors');
+send(c,b,bar);
+}
+
+function send(c,b,bar){
+let url=localStorage.getItem('url');
+if(!url){setStatus('🔴 No URL');return;}
+
+setStatus('🟡 Sending...');
+fetch(url+"?action="+c)
+.then(()=>{
+setStatus('🟢 Success');
+showPopup();
+logHistory(c);
+startCooldown(b,bar);
+})
+.catch(err=>{
+setStatus('🔴 Error');
+logError(err);
+});
+}
+
+function startCooldown(b,bar){
+b.disabled=true;
+let w=0;
+let i=setInterval(()=>{
+w+=2;
+bar.style.width=w+'%';
+if(w>=100){
+clearInterval(i);
+b.disabled=false;
+bar.style.width='0%';
+}},50);
+}
+
+function togglePanel(id){
+document.getElementById(id).classList.toggle('open');
+}
+
+function showPopup(){
+let p=document.getElementById('popup');
+p.style.display='block';
+setTimeout(()=>p.style.display='none',1500);
+}
+
+function setStatus(t){
+let el=document.getElementById('status');
+el.innerText=t;
+if(t.includes('Success'))
+setTimeout(()=>el.innerText='⚪ Idle',2000);
+}
+
+function logHistory(cmd){
+let h=JSON.parse(localStorage.getItem('history')||'[]');
+h.unshift(cmd+" - "+new Date().toLocaleTimeString());
+localStorage.setItem('history',JSON.stringify(h));
+renderHistory();
+}
+
+function renderHistory(){
+let list=document.getElementById('historyList');
+list.innerHTML='';
+(JSON.parse(localStorage.getItem('history')||'[]')).forEach(e=>{
+let d=document.createElement('div');
+d.innerText=e;
+list.appendChild(d);
+});
+}
+
+function logError(err){
+let e=JSON.parse(localStorage.getItem('errors')||'[]');
+e.unshift(err.toString());
+localStorage.setItem('errors',JSON.stringify(e));
+renderErrors();
+}
+
+function renderErrors(){
+let list=document.getElementById('errorList');
+list.innerHTML='';
+(JSON.parse(localStorage.getItem('errors')||'[]')).forEach(e=>{
+let d=document.createElement('div');
+d.innerText=e;
+list.appendChild(d);
+});
+}
+
+function saveSettings(){
+localStorage.setItem('url',url.value);
+localStorage.setItem('name',username.value);
+localStorage.setItem('bg',bgSelect.value);
+applyBG(bgSelect.value);
+}
+
+/* BACKGROUND SYSTEM (same as yours, unchanged) */
+const canvas=document.getElementById('shader');
+const ctx=canvas.getContext('2d');
+let anim;
+
+function applyBG(bg){
+cancelAnimationFrame(anim);
+document.body.className="";
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+
+document.body.style.color="white";
+document.getElementById("status").style.color="white";
+
+if(bg==="gradient"){document.body.classList.add("gradient");return;}
+if(bg==="dark"){document.body.classList.add("dark");return;}
+if(bg==="light"){document.body.classList.add("light");document.body.style.color="#111";return;}
+
+if(bg==="equinox" || bg==="boxes"){
+document.body.style.color="#111";
+}
+
+runShader(bg);
+}
+
+function runShader(type){
+let t=0;
+function draw(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+if(type==="hue"){
+for(let y=0;y<canvas.height;y+=4){
+let hue=(y+t*50)%360;
+ctx.fillStyle=`hsl(${hue},100%,60%)`;
+ctx.fillRect(0,y,canvas.width,4);
+}
+}
+else if(type==="equinox"){
+for(let i=0;i<50;i++){
+let x=Math.sin(i+t)*200+canvas.width/2;
+let y=Math.cos(i+t*0.8)*200+canvas.height/2;
+ctx.fillStyle=`hsla(${i*10},100%,60%,0.2)`;
+ctx.beginPath();ctx.arc(x,y,150,0,Math.PI*2);ctx.fill();
+}
+}
+else if(type==="interference"){
+for(let x=0;x<canvas.width;x+=6){
+for(let y=0;y<canvas.height;y+=6){
+let v=Math.sin(x*0.02+t)+Math.cos(y*0.02+t);
+let hue=(v*120+200)%360;
+ctx.fillStyle=`hsl(${hue},100%,60%)`;
+ctx.fillRect(x,y,5,5);
+}}
+}
+else if(type==="boxes"){
+for(let i=0;i<40;i++){
+let x=(i*60+t*100)%canvas.width;
+let y=(i*40+t*80)%canvas.height;
+let hue=(i*30+t*100)%360;
+ctx.fillStyle=`hsla(${hue},100%,60%,0.3)`;
+ctx.fillRect(x,y,120,80);
+}
+}
+
+t+=0.01;
+anim=requestAnimationFrame(draw);
+}
+draw();
+}
+
+(function(){
+applyBG(localStorage.getItem('bg')||'gradient');
+renderHistory();
+renderErrors();
+})();
+</script>
+
+</body>
+</html>
