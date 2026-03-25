@@ -718,15 +718,20 @@
 
     function safeFetch(url) {
       const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 9000);
-      return fetch(url, { method: 'GET', mode: 'cors', signal: ctrl.signal })
-        .then(r => {
+      const timeout = setTimeout(() => ctrl.abort(), 15000);
+
+      // Apps Script web-app endpoints often fail CORS preflight/reads from static hosts.
+      // We only need to dispatch commands, so use no-cors fire-and-forget semantics.
+      return fetch(url, { method: 'GET', mode: 'no-cors', signal: ctrl.signal, cache: 'no-store' })
+        .then(() => {
           clearTimeout(timeout);
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.text();
+          return true;
         })
         .catch(err => {
           clearTimeout(timeout);
+          if (err?.name === 'AbortError') {
+            throw new Error('Request timed out. Check deployment URL, web app access, or internet.');
+          }
           throw err;
         });
     }
