@@ -7,7 +7,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
-<!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/V033Fgt.png" type="image/png">
 
 <style>
@@ -21,7 +20,11 @@ body {
 }
 
 /* THEMES */
-body.gradient { background: linear-gradient(135deg,#ff0000,#ff0080,#8a2be2,#00bfff); background-size:300% 300%; animation: gradientMove 10s ease infinite; }
+body.gradient {
+  background: linear-gradient(135deg,#ff0000,#ff0080,#8a2be2,#00bfff);
+  background-size:300% 300%;
+  animation: gradientMove 10s ease infinite;
+}
 body.dark { background:#0a0a0a; }
 body.light { background:#f5f5f5; color:#111; }
 
@@ -53,7 +56,6 @@ body.light { background:#f5f5f5; color:#111; }
   font-size:14px;
   backdrop-filter:blur(10px);
   position:relative;
-  cursor:pointer;
 }
 
 .cooldown-bar {
@@ -64,7 +66,7 @@ body.light { background:#f5f5f5; color:#111; }
   background:rgba(255,255,255,0.2);
 }
 
-/* NAV */
+/* NAV / SIDE BUTTONS */
 .side {
   position:fixed;
   bottom:10px;
@@ -72,12 +74,14 @@ body.light { background:#f5f5f5; color:#111; }
   transform:translateX(-50%);
   display:flex;
   gap:18px;
+  z-index:15; /* above canvas */
 }
 .side button {
-  width:55px;height:55px;
+  width:55px; height:55px;
   border-radius:50%;
   border:none;
   background:rgba(255,255,255,0.25);
+  z-index:10; /* ensures clickable above canvas */
 }
 
 /* PANELS */
@@ -90,6 +94,7 @@ body.light { background:#f5f5f5; color:#111; }
   padding:20px;
   display:none;
   overflow-y:auto;
+  z-index:20;
 }
 .panel.open { display:block; }
 
@@ -105,6 +110,7 @@ body.light { background:#f5f5f5; color:#111; }
   background:black;
   padding:10px;
   border-radius:8px;
+  z-index:15;
 }
 
 /* POPUP */
@@ -115,9 +121,14 @@ body.light { background:#f5f5f5; color:#111; }
   padding:8px 12px;
   border-radius:8px;
   display:none;
+  z-index:15;
 }
 
-.footer { text-align:center; font-size:12px; padding-bottom:100px; }
+.footer {
+  text-align:center;
+  font-size:12px;
+  padding-bottom:100px;
+}
 
 .url-item {
   background:rgba(255,255,255,0.1);
@@ -136,7 +147,7 @@ canvas {
   width: 100%;
   height: calc(100% - env(safe-area-inset-top));
   z-index: -1;
-  pointer-events: none; /* <- fixes buttons and send panel clicks */
+  pointer-events: none; /* allow touches through canvas */
 }
 </style>
 </head>
@@ -155,7 +166,6 @@ canvas {
 <button onclick="togglePanel('history')">📜</button>
 <button onclick="togglePanel('errors')">⚠️</button>
 <button onclick="togglePanel('help')">❓</button>
-<button onclick="togglePanel('sendPanel')">✉️</button>
 </div>
 
 <!-- SETTINGS -->
@@ -165,7 +175,6 @@ canvas {
 
 <input id="siteTitle" placeholder="Site Title"><br><br>
 <input id="username" placeholder="Username"><br><br>
-
 <input id="urlName" placeholder="Name"><br><br>
 <input id="urlValue" placeholder="URL"><br><br>
 <button onclick="saveURL()">Save URL</button><br><br>
@@ -225,7 +234,6 @@ canvas {
 
 <div id="status" class="status">⚪ Idle</div>
 <div id="popup" class="popup">Sent!</div>
-
 <div class="footer">Artistry Hub © 2026</div>
 
 <script>
@@ -260,13 +268,15 @@ function loadURLs(){
   sendUrlSelect.innerHTML='';
   let active=localStorage.getItem('activeName');
   for(let name in urls){
+    // Settings select
     let opt=document.createElement('option');
     opt.value=name;
     opt.textContent=name;
     urlSelect.appendChild(opt);
 
+    // Send panel select
     let opt2=document.createElement('option');
-    opt2.value=urls[name];
+    opt2.value=urls[name]; 
     opt2.textContent=name;
     if(name===active) opt2.selected=true;
     sendUrlSelect.appendChild(opt2);
@@ -274,11 +284,7 @@ function loadURLs(){
     let div=document.createElement('div');
     div.className='url-item';
     if(name===active) div.classList.add('active');
-    div.innerHTML=`${name}
-      <div>
-        <button onclick="editURL('${name}')">✏️</button>
-        <button onclick="deleteURL('${name}')">🗑</button>
-      </div>`;
+    div.innerHTML=`${name}<div><button onclick="editURL('${name}')">✏️</button><button onclick="deleteURL('${name}')">🗑</button></div>`;
     div.onclick=()=>setActiveURL(name);
     urlList.appendChild(div);
   }
@@ -345,20 +351,32 @@ function send(c, b, bar){
     });
 }
 
-function setStatus(t){
-  let el=document.getElementById('status');
-  el.innerText=t;
-  if(t.includes('Success') || t.includes('Sent!')) setTimeout(()=>el.innerText='⚪ Idle',2000);
-}
+// ===================== SEND PANEL FUNCTION =====================
+function sendPanelMessage() {
+  const message = document.getElementById('panelMessage').value.trim();
+  if(!message) return;
 
-function startCooldown(b,bar){
-  b.disabled=true;
-  let w=0;
-  let i=setInterval(()=>{
-    w+=2;
-    bar.style.width=w+'%';
-    if(w>=100){ clearInterval(i); b.disabled=false; bar.style.width='0%'; }
-  },50);
+  const select = document.getElementById('sendUrlSelect');
+  const url = select.value;
+  if(!url){ setStatus('🔴 No URL'); return; }
+
+  setStatus('🟡 Sending...');
+  fetch(url + '?action=message&text=' + encodeURIComponent(message))
+    .then(()=>{
+      setStatus('🟢 Sent!');
+      showPopup();
+      logHistory('command sent: text');
+      document.getElementById('panelMessage').value='';
+      setTimeout(()=>setStatus('⚪ Idle'),2000);
+    })
+    .catch(err=>{
+      console.warn("Fetch error ignored:", err);
+      setStatus('🟢 Sent!');
+      showPopup();
+      logHistory('command sent: text');
+      document.getElementById('panelMessage').value='';
+      setTimeout(()=>setStatus('⚪ Idle'),2000);
+    });
 }
 
 // ===================== HISTORY & ERRORS =====================
@@ -398,33 +416,23 @@ function renderErrors(){
   });
 }
 
-// ===================== SEND PANEL =====================
-function sendPanelMessage() {
-  const message = document.getElementById('panelMessage').value.trim();
-  if(!message) return;
-
-  const select = document.getElementById('sendUrlSelect');
-  const url = select.value;
-  if(!url){ setStatus('🔴 No URL'); return; }
-
-  setStatus('🟡 Sending...');
-  fetch(url + '?action=message&text=' + encodeURIComponent(message))
-    .then(()=>{
-      setStatus('🟢 Sent!');
-      showPopup();
-      logHistory('command sent: text');
-      document.getElementById('panelMessage').value='';
-      setTimeout(()=>setStatus('⚪ Idle'),2000);
-    })
-    .catch(err=>{
-      console.warn("Fetch error ignored:", err);
-      setStatus('🟢 Sent!');
-      showPopup();
-      logHistory('command sent: text');
-      document.getElementById('panelMessage').value='';
-      setTimeout(()=>setStatus('⚪ Idle'),2000);
-    });
+// ===================== SETTINGS =====================
+function saveSettings(){
+  localStorage.setItem('title',siteTitle.value);
+  localStorage.setItem('username',username.value);
+  localStorage.setItem('bg',bgSelect.value);
+  applyBG(bgSelect.value);
+  title.innerText=siteTitle.value;
 }
+
+function changeBG(bg){
+  localStorage.setItem('bg',bg);
+  applyBG(bg);
+}
+
+// ===================== UI =====================
+function togglePanel(id){ document.getElementById(id).classList.toggle('open'); }
+function showPopup(){ popup.style.display='block'; setTimeout(()=>popup.style.display='none',1500); }
 
 // ===================== BACKGROUNDS =====================
 const canvas=document.getElementById('shader');
@@ -433,16 +441,15 @@ let anim;
 
 function applyBG(bg){
   cancelAnimationFrame(anim);
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
   document.body.style.color="white";
   document.body.classList.remove("gradient","dark","light","hue","equinox","interference","boxes");
 
-  if(bg==="gradient"){document.body.classList.add("gradient");return;}
-  if(bg==="dark"){document.body.classList.add("dark");return;}
-  if(bg==="light"){document.body.classList.add("light");document.body.style.color="#111";return;}
-
-  if(bg==="equinox"||bg==="boxes"||bg==="interference"){
-    document.body.style.color="#111";
-  }
+  if(bg==="gradient"){document.body.classList.add("gradient"); return;}
+  if(bg==="dark"){document.body.classList.add("dark"); return;}
+  if(bg==="light"){document.body.classList.add("light"); document.body.style.color="#111"; return;}
+  if(bg==="equinox"||bg==="boxes"||bg==="interference"){document.body.style.color="#111";}
 
   runShader(bg);
 }
@@ -451,7 +458,6 @@ function runShader(type){
   let t=0;
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-
     if(type==="interference"){
       for(let x=0;x<canvas.width;x+=6){
         for(let y=0;y<canvas.height;y+=6){
@@ -462,7 +468,6 @@ function runShader(type){
         }
       }
     }
-
     t+=0.01;
     anim=requestAnimationFrame(draw);
   }
@@ -478,7 +483,6 @@ function runShader(type){
   let savedTitle=localStorage.getItem('title')||"🎨 Artistry Hub Commands Bot";
   title.innerText=savedTitle;
   siteTitle.value=savedTitle;
-
   username.value=localStorage.getItem('username')||"";
 
   let bg=localStorage.getItem('bg')||"gradient";
