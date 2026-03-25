@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Artistry Hub Commands Bot</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="https://i.imgur.com/V033Fgt.png" type="image/png">
+
+<style>
+body {margin:0;font-family:sans-serif;color:white;overflow-x:hidden;overflow-y:auto;}
+canvas {position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;}
+
+/* THEMES */
+body.gradient { background: linear-gradient(135deg,#ff0000,#ff0080,#8a2be2,#00bfff); background-size:300% 300%; animation: gradientMove 10s ease infinite; color:white; }
+body.dark { background:#0a0a0a; color:white; }
+body.light { background:#f5f5f5; color:#111; }
+
+@keyframes gradientMove { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+
+/* HEADER */
+.header { text-align:center; padding:15px; }
+.header h1 { font-size:24px; }
+
+/* BUTTON GRID */
+.container { display:grid; grid-template-columns: repeat(auto-fit,minmax(80px,1fr)); gap:12px; padding:15px; padding-bottom:140px; }
+.button { height:70px; border:none; border-radius:14px; background:rgba(255,255,255,0.2); color:inherit; font-size:14px; backdrop-filter:blur(10px); position:relative; }
+
+/* COOLDOWN BAR */
+.cooldown-bar { position:absolute; top:0; left:0; height:100%; width:0%; background:rgba(255,255,255,0.2); }
+
+/* SIDE BUTTONS (BOTTOM NAV) */
+.side {
+  position:fixed;
+  bottom:10px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:15px;
+  z-index:15;
+}
+.side button { width:50px; height:50px; border-radius:50%; border:none; background:rgba(255,255,255,0.25); }
+
+/* PANELS */
+.panel {
+  position:fixed;
+  left:0; top:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.95);
+  padding:20px;
+  display:none;
+  overflow-y:auto;
+  z-index:20;
+}
+.panel.open { display:block; }
+
+/* TEXT IN PANELS */
+.panel *:not(input):not(select){ color:white; }
+.panel input, .panel select { color:#111; background:white; }
+
+/* STATUS AND POPUP */
+.status { position:fixed; bottom:80px; right:10px; background:black; padding:10px; border-radius:8px; z-index:15; }
+.popup { position:fixed; top:15px; right:15px; background:rgba(0,0,0,0.8); padding:8px 12px; border-radius:8px; display:none; z-index:15; }
+.footer { text-align:center; font-size:12px; padding-bottom:100px; }
+
+/* URL ITEMS */
+.url-item { background:rgba(255,255,255,0.1); padding:8px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; }
+.url-item.active { outline:2px solid #00ffcc; }
+</style>
+</head>
+
+<body>
+<canvas id="shader"></canvas>
+
+<div class="header">
+<h1 id="title">🎨 Artistry Hub Commands Bot</h1>
+</div>
+
+<div class="container" id="buttons"></div>
+
+<div class="side">
+<button onclick="togglePanel('settings')">⚙️</button>
+<button onclick="togglePanel('history')">📜</button>
+<button onclick="togglePanel('errors')">⚠️</button>
+<button onclick="togglePanel('help')">❓</button>
+<button onclick="togglePanel('sendPanel')">✉️</button>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div id="settings" class="panel">
+<button onclick="togglePanel('settings')">Close</button>
+<h3>Settings</h3>
+<input id="siteTitle" placeholder="Site Title"><br><br>
+<input id="username" placeholder="Username"><br><br>
+<input id="urlName" placeholder="Name"><br><br>
+<input id="urlValue" placeholder="URL"><br><br>
+<button onclick="saveURL()">Save URL</button><br><br>
+<select id="urlSelect" onchange="selectURL()"></select><br><br>
+<div id="urlList"></div>
+<br>
+<button onclick="exportURLs()">📤 Export URLs</button>
+<input type="file" onchange="importURLs(event)"><br><br>
+<select id="bgSelect" onchange="changeBG(this.value)">
+<option value="gradient">Gradient</option>
+<option value="dark">Dark</option>
+<option value="light">Light</option>
+<option value="hue">Hue</option>
+<option value="equinox">Equinox</option>
+<option value="interference">Interference</option>
+<option value="boxes">Boxes</option>
+</select><br><br>
+<button onclick="saveSettings()">Save</button>
+</div>
+
+<!-- HISTORY PANEL -->
+<div id="history" class="panel">
+<button onclick="togglePanel('history')">Close</button>
+<h3>History</h3>
+<button onclick="clearHistory()">🗑 Clear</button>
+<div id="historyList"></div>
+</div>
+
+<!-- ERRORS PANEL -->
+<div id="errors" class="panel">
+<button onclick="togglePanel('errors')">Close</button>
+<h3>Errors</h3>
+<div id="errorList"></div>
+</div>
+
+<!-- HELP PANEL -->
+<div id="help" class="panel">
+<button onclick="togglePanel('help')">Close</button>
+<h3>📖 Help</h3>
+<p>Use Settings to add URLs, then run commands.</p>
+</div>
+
+<!-- SEND PANEL -->
+<div id="sendPanel" class="panel">
+<button onclick="togglePanel('sendPanel')">Close</button>
+<h3>Send a Message</h3>
+<select id="sendUrlSelect"></select><br><br>
+<input type="text" id="panelMessage" placeholder="Type your message...">
+<button onclick="sendPanelMessage()">Send</button>
+</div>
+
+<div id="status" class="status">⚪ Idle</div>
+<div id="popup" class="popup">Sent!</div>
+<div class="footer">Artistry Hub © 2026</div>
+
+<script>
+// ===================== BUTTONS =====================
+const cmds=["seturl","run","help","deny","random","fact","quote","challenge","riddle","trivia","joke","schedule","word","poll","errors"];
+const labels=["🔧 Set URL","▶ Run","❓ Help","⛔ Deny","🎲 Random","📚 Fact","💬 Quote","🎨 Challenge","🧠 Riddle","❗ Trivia","😂 Joke","📅 Schedule","📖 Word","📊 Poll","⚠️ Errors"];
+const container=document.getElementById('buttons');
+
+cmds.forEach((c,i)=>{
+  let b=document.createElement('button');
+  b.className='button';
+  b.innerText=labels[i];
+  let bar=document.createElement('div');
+  bar.className='cooldown-bar';
+  b.appendChild(bar);
+  b.onclick=()=>clickCmd(c,b,bar);
+  container.appendChild(b);
+});
+
+// ===================== URL SYSTEM =====================
+function saveURL(){
+  let urls=JSON.parse(localStorage.getItem('urls')||'{}');
+  urls[urlName.value]=urlValue.value;
+  localStorage.setItem('urls',JSON.stringify(urls));
+  loadURLs();
+}
+
+function loadURLs(){
+  let urls=JSON.parse(localStorage.getItem('urls')||'{}');
+  urlList.innerHTML='';
+  urlSelect.innerHTML='';
+  sendUrlSelect.innerHTML='';
+  let active=localStorage.getItem('activeName');
+  for(let name in urls){
+    let opt=document.createElement('option');
+    opt.value=name; opt.textContent=name; urlSelect.appendChild(opt);
+    let opt2=document.createElement('option');
+    opt2.value=urls[name]; opt2.textContent=name; if(name===active) opt2.selected=true; sendUrlSelect.appendChild(opt2);
+    let div=document.createElement('div');
+    div.className='url-item'; if(name===active) div.classList.add('active');
+    div.innerHTML=`${name}<div><button onclick="editURL('${name}')">✏️</button><button onclick="deleteURL('${name}')">🗑</button></div>`;
+    div.onclick=()=>setActiveURL(name);
+    urlList.appendChild(div);
+  }
+}
+function setActiveURL(name){ let urls=JSON.parse(localStorage.getItem('urls')); localStorage.setItem('url',urls[name]); localStorage.setItem('activeName',name); loadURLs(); }
+function selectURL(){ setActiveURL(urlSelect.value); }
+function deleteURL(name){ let urls=JSON.parse(localStorage.getItem('urls')); delete urls[name]; localStorage.setItem('urls',JSON.stringify(urls)); loadURLs(); }
+function editURL(name){ let urls=JSON.parse(localStorage.getItem('urls')); urlName.value=name; urlValue.value=urls[name]; }
+function importURLs(e){let file=e.target.files[0];let reader=new FileReader();reader.onload=x=>{try{let parsed=JSON.parse(x.target.result); localStorage.setItem('urls',JSON.stringify(parsed)); loadURLs(); alert("Import successful!");}catch{alert("Invalid JSON file");}};reader.readAsText(file);}
+function exportURLs(){let blob=new Blob([localStorage.getItem('urls')||'{}']); let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="urls.json"; a.click();}
+
+// ===================== COMMAND SYSTEM =====================
+function clickCmd(c,b,bar){
+  if(c==='seturl') return togglePanel('settings');
+  if(c==='errors') return togglePanel('errors');
+  send(c,b,bar);
+}
+function send(c,b,bar){
+  let url=localStorage.getItem('url'); if(!url){ setStatus('🔴 No URL'); return; }
+  setStatus('🟡 Sending...');
+  fetch(url+"?action="+c).then(()=>{ setStatus('🟢 Success'); showPopup(); logHistory(c); startCooldown(b,bar); }).catch(err=>{ console.warn(err); setStatus('🟢 Success'); showPopup(); logHistory(c); startCooldown(b,bar); });
+}
+function startCooldown(b,bar){ b.disabled=true; let w=0; let i=setInterval(()=>{ w+=2; bar.style.width=w+'%'; if(w>=100){ clearInterval(i); b.disabled=false; bar.style.width='0%'; } },50); }
+
+// ===================== SEND PANEL =====================
+function sendPanelMessage(){
+  const message=document.getElementById('panelMessage').value.trim();
+  if(!message) return;
+  const select=document.getElementById('sendUrlSelect');
+  const url=select.value; if(!url){ setStatus('🔴 No URL'); return; }
+  setStatus('🟡 Sending...');
+  fetch(url+'?action=message&text='+encodeURIComponent(message)).then(()=>{ setStatus('🟢 Sent!'); showPopup(); logHistory('command sent: text'); document.getElementById('panelMessage').value=''; setTimeout(()=>setStatus('⚪ Idle'),2000); }).catch(err=>{ console.warn(err); setStatus('🟢 Sent!'); showPopup(); logHistory('command sent: text'); document.getElementById('panelMessage').value=''; setTimeout(()=>setStatus('⚪ Idle'),2000); });
+}
+
+// ===================== HISTORY & ERRORS =====================
+function logHistory(cmd){ let h=JSON.parse(localStorage.getItem('history')||'[]'); let user=localStorage.getItem('username')||"Unknown"; let active=localStorage.getItem('activeName')||"None"; h.unshift(`${user} • ${cmd} • ${active} • ${new Date().toLocaleTimeString()}`); localStorage.setItem('history',JSON.stringify(h)); renderHistory(); }
+function renderHistory(){ historyList.innerHTML=''; (JSON.parse(localStorage.getItem('history')||'[]')).forEach(e=>{ let d=document.createElement('div'); d.innerText=e; historyList.appendChild(d); }); }
+function clearHistory(){ localStorage.removeItem('history'); renderHistory(); }
+function logError(err){ let e=JSON.parse(localStorage.getItem('errors')||'[]'); e.unshift(err.toString()); localStorage.setItem('errors',JSON.stringify(e)); renderErrors(); }
+function renderErrors(){ errorList.innerHTML=''; (JSON.parse(localStorage.getItem('errors')||'[]')).forEach(e=>{ let d=document.createElement('div'); d.innerText=e; errorList.appendChild(d); }); }
+
+// ===================== SETTINGS & UI =====================
+function saveSettings(){ localStorage.setItem('title',siteTitle.value); localStorage.setItem('username',username.value); localStorage.setItem('bg',bgSelect.value); applyBG(bgSelect.value); title.innerText=siteTitle.value; }
+function changeBG(bg){ localStorage.setItem('bg',bg); applyBG(bg); }
+function togglePanel(id){ document.getElementById(id).classList.toggle('open'); }
+function showPopup(){ popup.style.display='block'; setTimeout(()=>popup.style.display='none',1500); }
+
+// ===================== BACKGROUNDS =====================
+const canvas=document.getElementById('shader'); const ctx=canvas.getContext('2d'); let anim;
+function applyBG(bg){ cancelAnimationFrame(anim); canvas.width=window.innerWidth; canvas.height=window.innerHeight; document.body.style.color="white"; document.body.classList.remove("gradient","dark","light","hue","equinox","interference","boxes");
+if(bg==="gradient"){document.body.classList.add("gradient"); return;}
+if(bg==="dark"){document.body.classList.add("dark"); return;}
+if(bg==="light"){document.body.classList.add("light"); document.body.style.color="#111"; return;}
+if(bg==="equinox"||bg==="boxes"||bg==="interference"){document.body.style.color="#111";}
+runShader(bg);
+}
+function runShader(type){ let t=0; function draw(){ ctx.clearRect(0,0,canvas.width,canvas.height);
+if(type==="interference"){for(let x=0;x<canvas.width;x+=6){for(let y=0;y<canvas.height;y+=6){let v=Math.sin(x*0.02+t)+Math.cos(y*0.02+t); let hue=(v*120+200)%360; ctx.fillStyle=`hsl(${hue},100%,60%)`; ctx.fillRect(x,y,5,5);}}}
+t+=0.01; anim=requestAnimationFrame(draw);} draw();}
+
+// ===================== INIT =====================
+(function(){ loadURLs(); renderHistory(); renderErrors(); let savedTitle=localStorage.getItem('title')||"🎨 Artistry Hub Commands Bot"; title.innerText=savedTitle; siteTitle.value=savedTitle; username.value=localStorage.getItem('username')||""; let bg=localStorage.getItem('bg')||"gradient"; bgSelect.value=bg; applyBG(bg); })();
+</script>
+</body>
+</html>
