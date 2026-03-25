@@ -7,48 +7,137 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
+<!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/V033Fgt.png" type="image/png">
 
 <style>
-body { margin:0; font-family:sans-serif; color:white; overflow-x:hidden; overflow-y:auto; padding-top: env(safe-area-inset-top); }
+body {
+  margin:0;
+  font-family:sans-serif;
+  color:white;
+  overflow-x:hidden;
+  overflow-y:auto;
+  padding-top: env(safe-area-inset-top);
+}
 
 /* THEMES */
 body.gradient { background: linear-gradient(135deg,#ff0000,#ff0080,#8a2be2,#00bfff); background-size:300% 300%; animation: gradientMove 10s ease infinite; }
 body.dark { background:#0a0a0a; }
 body.light { background:#f5f5f5; color:#111; }
-@keyframes gradientMove { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+
+@keyframes gradientMove {
+  0%{background-position:0% 50%;}
+  50%{background-position:100% 50%;}
+  100%{background-position:0% 50%;}
+}
 
 /* HEADER */
 .header { text-align:center; padding:15px; }
 .header h1 { font-size:22px; }
 
 /* GRID */
-.container { display:grid; grid-template-columns: repeat(2,1fr); gap:12px; padding:15px; padding-bottom:120px; }
-.button { height:70px; border:none; border-radius:14px; background:rgba(255,255,255,0.2); color:inherit; font-size:14px; backdrop-filter:blur(10px); position:relative; }
-.cooldown-bar { position:absolute; top:0; left:0; height:100%; width:0%; background:rgba(255,255,255,0.2); }
+.container {
+  display:grid;
+  grid-template-columns: repeat(2,1fr);
+  gap:12px;
+  padding:15px;
+  padding-bottom:120px;
+}
+
+.button {
+  height:70px;
+  border:none;
+  border-radius:14px;
+  background:rgba(255,255,255,0.2);
+  color:inherit;
+  font-size:14px;
+  backdrop-filter:blur(10px);
+  position:relative;
+  cursor:pointer;
+}
+
+.cooldown-bar {
+  position:absolute;
+  top:0; left:0;
+  height:100%;
+  width:0%;
+  background:rgba(255,255,255,0.2);
+}
 
 /* NAV */
-.side { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:18px; }
-.side button { width:55px;height:55px; border-radius:50%; border:none; background:rgba(255,255,255,0.25); }
+.side {
+  position:fixed;
+  bottom:10px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:18px;
+}
+.side button {
+  width:55px;height:55px;
+  border-radius:50%;
+  border:none;
+  background:rgba(255,255,255,0.25);
+}
 
 /* PANELS */
-.panel { position:fixed; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.95); padding:20px; display:none; overflow-y:auto; }
+.panel {
+  position:fixed;
+  left:0; top:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.95);
+  padding:20px;
+  display:none;
+  overflow-y:auto;
+}
 .panel.open { display:block; }
+
+/* TEXT */
 .panel *:not(input):not(select){ color:white; }
 .panel input, .panel select { color:#111; background:white; }
 
 /* STATUS */
-.status { position:fixed; bottom:80px; right:10px; background:black; padding:10px; border-radius:8px; }
+.status {
+  position:fixed;
+  bottom:80px;
+  right:10px;
+  background:black;
+  padding:10px;
+  border-radius:8px;
+}
 
 /* POPUP */
-.popup { position:fixed; top:15px; right:15px; background:rgba(0,0,0,0.8); padding:8px 12px; border-radius:8px; display:none; }
+.popup {
+  position:fixed;
+  top:15px; right:15px;
+  background:rgba(0,0,0,0.8);
+  padding:8px 12px;
+  border-radius:8px;
+  display:none;
+}
 
 .footer { text-align:center; font-size:12px; padding-bottom:100px; }
 
-.url-item { background:rgba(255,255,255,0.1); padding:8px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; }
+.url-item {
+  background:rgba(255,255,255,0.1);
+  padding:8px;
+  border-radius:10px;
+  margin-bottom:8px;
+  display:flex;
+  justify-content:space-between;
+}
 .url-item.active { outline:2px solid #00ffcc; }
 
-canvas { position: fixed; top: env(safe-area-inset-top); left: 0; width: 100%; height: calc(100% - env(safe-area-inset-top)); z-index: -1; }
+canvas {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: 0;
+  width: 100%;
+  height: calc(100% - env(safe-area-inset-top));
+  z-index: -1;
+  pointer-events: none; /* <- fixes buttons and send panel clicks */
+}
 </style>
 </head>
 
@@ -69,20 +158,25 @@ canvas { position: fixed; top: env(safe-area-inset-top); left: 0; width: 100%; h
 <button onclick="togglePanel('sendPanel')">✉️</button>
 </div>
 
-<!-- SETTINGS PANEL -->
+<!-- SETTINGS -->
 <div id="settings" class="panel">
 <button onclick="togglePanel('settings')">Close</button>
 <h3>Settings</h3>
+
 <input id="siteTitle" placeholder="Site Title"><br><br>
 <input id="username" placeholder="Username"><br><br>
+
 <input id="urlName" placeholder="Name"><br><br>
 <input id="urlValue" placeholder="URL"><br><br>
 <button onclick="saveURL()">Save URL</button><br><br>
+
 <select id="urlSelect" onchange="selectURL()"></select><br><br>
 <div id="urlList"></div>
+
 <br>
 <button onclick="exportURLs()">📤 Export</button>
 <input type="file" onchange="importURLs(event)">
+
 <br><br>
 <select id="bgSelect" onchange="changeBG(this.value)">
 <option value="gradient">Gradient</option>
@@ -93,11 +187,12 @@ canvas { position: fixed; top: env(safe-area-inset-top); left: 0; width: 100%; h
 <option value="interference">Interference</option>
 <option value="boxes">Boxes</option>
 </select>
+
 <br><br>
 <button onclick="saveSettings()">Save</button>
 </div>
 
-<!-- HISTORY PANEL -->
+<!-- HISTORY -->
 <div id="history" class="panel">
 <button onclick="togglePanel('history')">Close</button>
 <h3>History</h3>
@@ -105,14 +200,14 @@ canvas { position: fixed; top: env(safe-area-inset-top); left: 0; width: 100%; h
 <div id="historyList"></div>
 </div>
 
-<!-- ERRORS PANEL -->
+<!-- ERRORS -->
 <div id="errors" class="panel">
 <button onclick="togglePanel('errors')">Close</button>
 <h3>Errors</h3>
 <div id="errorList"></div>
 </div>
 
-<!-- HELP PANEL -->
+<!-- HELP -->
 <div id="help" class="panel">
 <button onclick="togglePanel('help')">Close</button>
 <h3>📖 Help</h3>
@@ -130,6 +225,7 @@ canvas { position: fixed; top: env(safe-area-inset-top); left: 0; width: 100%; h
 
 <div id="status" class="status">⚪ Idle</div>
 <div id="popup" class="popup">Sent!</div>
+
 <div class="footer">Artistry Hub © 2026</div>
 
 <script>
@@ -164,16 +260,15 @@ function loadURLs(){
   sendUrlSelect.innerHTML='';
   let active=localStorage.getItem('activeName');
   for(let name in urls){
-    // Settings select
     let opt=document.createElement('option');
     opt.value=name;
     opt.textContent=name;
     urlSelect.appendChild(opt);
-    // Send panel select
+
     let opt2=document.createElement('option');
-    opt2.value=urls[name]; // actual URL
+    opt2.value=urls[name];
     opt2.textContent=name;
-    if(name===active) opt2.selected=true; // pre-select
+    if(name===active) opt2.selected=true;
     sendUrlSelect.appendChild(opt2);
 
     let div=document.createElement('div');
@@ -203,8 +298,14 @@ function importURLs(e){
   let file=e.target.files[0];
   let reader=new FileReader();
   reader.onload=x=>{
-    try{ let parsed=JSON.parse(x.target.result); localStorage.setItem('urls',JSON.stringify(parsed)); loadURLs(); alert("Import successful!"); }
-    catch{ alert("Invalid JSON file"); }
+    try{
+      let parsed=JSON.parse(x.target.result);
+      localStorage.setItem('urls',JSON.stringify(parsed));
+      loadURLs();
+      alert("Import successful!");
+    }catch{
+      alert("Invalid JSON file");
+    }
   };
   reader.readAsText(file);
 }
@@ -216,59 +317,48 @@ function exportURLs(){
   a.click();
 }
 
-// ===================== COMMANDS =====================
+// ===================== BUTTON SYSTEM =====================
 function clickCmd(c,b,bar){
   if(c==='seturl') return togglePanel('settings');
   if(c==='errors') return togglePanel('errors');
   send(c,b,bar);
 }
 
-function send(c,b,bar){
-  let url=localStorage.getItem('url');
+function send(c, b, bar){
+  let url = localStorage.getItem('url');
   if(!url){ setStatus('🔴 No URL'); return; }
 
   setStatus('🟡 Sending...');
-  fetch(url+"?action="+c)
+  fetch(url + "?action=" + c)
     .then(()=>{
       setStatus('🟢 Success');
       showPopup();
       logHistory(c);
-      startCooldown(b,bar);
+      startCooldown(b, bar);
     })
     .catch(err=>{
-      console.warn("Fetch error ignored:",err);
+      console.warn("Fetch error ignored:", err);
       setStatus('🟢 Success');
       showPopup();
       logHistory(c);
-      startCooldown(b,bar);
+      startCooldown(b, bar);
     });
 }
 
-// ===================== SEND PANEL FUNCTION =====================
-function sendPanelMessage(){
-  const message=document.getElementById('panelMessage').value.trim();
-  if(!message) return;
+function setStatus(t){
+  let el=document.getElementById('status');
+  el.innerText=t;
+  if(t.includes('Success') || t.includes('Sent!')) setTimeout(()=>el.innerText='⚪ Idle',2000);
+}
 
-  const url=document.getElementById('sendUrlSelect').value;
-  if(!url){ setStatus('🔴 No URL'); return; }
-
-  setStatus('🟡 Sending...');
-  fetch(url+'?action=message&text='+encodeURIComponent(message))
-    .then(()=>{
-      setStatus('🟢 Sent!');
-      showPopup();
-      logHistory('command sent: text');
-      document.getElementById('panelMessage').value='';
-      setTimeout(()=>setStatus('⚪ Idle'),2000);
-    })
-    .catch(err=>{
-      console.warn("Fetch error ignored:",err);
-      setStatus('🟢 Sent!');
-      showPopup();
-      logHistory('command sent: text');
-      document.getElementById('panelMessage').value='';
-      setTimeout(()=>setStatus('⚪ Idle'),2000);
-    });
+function startCooldown(b,bar){
+  b.disabled=true;
+  let w=0;
+  let i=setInterval(()=>{
+    w+=2;
+    bar.style.width=w+'%';
+    if(w>=100){ clearInterval(i); b.disabled=false; bar.style.width='0%'; }
+  },50);
 }
 
 // ===================== HISTORY & ERRORS =====================
@@ -280,32 +370,80 @@ function logHistory(cmd){
   localStorage.setItem('history',JSON.stringify(h));
   renderHistory();
 }
-function renderHistory(){ historyList.innerHTML=''; JSON.parse(localStorage.getItem('history')||'[]').forEach(e=>{ let d=document.createElement('div'); d.innerText=e; historyList.appendChild(d); }); }
+
+function renderHistory(){
+  historyList.innerHTML='';
+  (JSON.parse(localStorage.getItem('history')||'[]')).forEach(e=>{
+    let d=document.createElement('div');
+    d.innerText=e;
+    historyList.appendChild(d);
+  });
+}
+
 function clearHistory(){ localStorage.removeItem('history'); renderHistory(); }
 
-function logError(err){ let e=JSON.parse(localStorage.getItem('errors')||'[]'); e.unshift(err.toString()); localStorage.setItem('errors',JSON.stringify(e)); renderErrors(); }
-function renderErrors(){ errorList.innerHTML=''; JSON.parse(localStorage.getItem('errors')||'[]').forEach(e=>{ let d=document.createElement('div'); d.innerText=e; errorList.appendChild(d); }); }
+function logError(err){
+  let e=JSON.parse(localStorage.getItem('errors')||'[]');
+  e.unshift(err.toString());
+  localStorage.setItem('errors',JSON.stringify(e));
+  renderErrors();
+}
 
-// ===================== SETTINGS & UI =====================
-function saveSettings(){ localStorage.setItem('title',siteTitle.value); localStorage.setItem('username',username.value); localStorage.setItem('bg',bgSelect.value); applyBG(bgSelect.value); title.innerText=siteTitle.value; }
-function changeBG(bg){ localStorage.setItem('bg',bg); applyBG(bg); }
-function togglePanel(id){ document.getElementById(id).classList.toggle('open'); }
-function showPopup(){ popup.style.display='block'; setTimeout(()=>popup.style.display='none',1500); }
+function renderErrors(){
+  errorList.innerHTML='';
+  (JSON.parse(localStorage.getItem('errors')||'[]')).forEach(e=>{
+    let d=document.createElement('div');
+    d.innerText=e;
+    errorList.appendChild(d);
+  });
+}
+
+// ===================== SEND PANEL =====================
+function sendPanelMessage() {
+  const message = document.getElementById('panelMessage').value.trim();
+  if(!message) return;
+
+  const select = document.getElementById('sendUrlSelect');
+  const url = select.value;
+  if(!url){ setStatus('🔴 No URL'); return; }
+
+  setStatus('🟡 Sending...');
+  fetch(url + '?action=message&text=' + encodeURIComponent(message))
+    .then(()=>{
+      setStatus('🟢 Sent!');
+      showPopup();
+      logHistory('command sent: text');
+      document.getElementById('panelMessage').value='';
+      setTimeout(()=>setStatus('⚪ Idle'),2000);
+    })
+    .catch(err=>{
+      console.warn("Fetch error ignored:", err);
+      setStatus('🟢 Sent!');
+      showPopup();
+      logHistory('command sent: text');
+      document.getElementById('panelMessage').value='';
+      setTimeout(()=>setStatus('⚪ Idle'),2000);
+    });
+}
 
 // ===================== BACKGROUNDS =====================
 const canvas=document.getElementById('shader');
 const ctx=canvas.getContext('2d');
 let anim;
+
 function applyBG(bg){
   cancelAnimationFrame(anim);
-  canvas.width=window.innerWidth;
-  canvas.height=window.innerHeight;
   document.body.style.color="white";
   document.body.classList.remove("gradient","dark","light","hue","equinox","interference","boxes");
-  if(bg==="gradient"){document.body.classList.add("gradient"); return;}
-  if(bg==="dark"){document.body.classList.add("dark"); return;}
-  if(bg==="light"){document.body.classList.add("light"); document.body.style.color="#111"; return;}
-  if(bg==="equinox"||bg==="boxes"||bg==="interference"){document.body.style.color="#111";}
+
+  if(bg==="gradient"){document.body.classList.add("gradient");return;}
+  if(bg==="dark"){document.body.classList.add("dark");return;}
+  if(bg==="light"){document.body.classList.add("light");document.body.style.color="#111";return;}
+
+  if(bg==="equinox"||bg==="boxes"||bg==="interference"){
+    document.body.style.color="#111";
+  }
+
   runShader(bg);
 }
 
@@ -313,10 +451,18 @@ function runShader(type){
   let t=0;
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    if(type==="hue"){ for(let y=0;y<canvas.height;y+=4){ let hue=(y+t*50)%360; ctx.fillStyle=`hsl(${hue},100%,60%)`; ctx.fillRect(0,y,canvas.width,4); } }
-    else if(type==="equinox"){ for(let i=0;i<50;i++){ let x=Math.sin(i+t)*200+canvas.width/2; let y=Math.cos(i+t*0.8)*200+canvas.height/2; ctx.fillStyle=`hsla(${i*10},100%,60%,0.2)`; ctx.beginPath();ctx.arc(x,y,150,0,Math.PI*2);ctx.fill(); } }
-    else if(type==="interference"){ for(let x=0;x<canvas.width;x+=6){ for(let y=0;y<canvas.height;y+=6){ let v=Math.sin(x*0.02+t)+Math.cos(y*0.02+t); let hue=(v*120+200)%360; ctx.fillStyle=`hsl(${hue},100%,60%)`; ctx.fillRect(x,y,5,5); } } }
-    else if(type==="boxes"){ for(let i=0;i<40;i++){ let x=(i*60+t*100)%canvas.width; let y=(i*40+t*80)%canvas.height; let hue=(i*30+t*100)%360; ctx.fillStyle=`hsla(${hue},100%,60%,0.3)`; ctx.fillRect(x,y,120,80); } }
+
+    if(type==="interference"){
+      for(let x=0;x<canvas.width;x+=6){
+        for(let y=0;y<canvas.height;y+=6){
+          let v=Math.sin(x*0.02+t)+Math.cos(y*0.02+t);
+          let hue=(v*120+200)%360;
+          ctx.fillStyle=`hsl(${hue},100%,60%)`;
+          ctx.fillRect(x,y,5,5);
+        }
+      }
+    }
+
     t+=0.01;
     anim=requestAnimationFrame(draw);
   }
@@ -329,14 +475,15 @@ function runShader(type){
   renderHistory();
   renderErrors();
 
-  let savedTitle = localStorage.getItem('title') || "🎨 Artistry Hub Commands Bot";
-  title.innerText = savedTitle;
-  siteTitle.value = savedTitle;
-  username.value = localStorage.getItem('username') || "";
+  let savedTitle=localStorage.getItem('title')||"🎨 Artistry Hub Commands Bot";
+  title.innerText=savedTitle;
+  siteTitle.value=savedTitle;
 
-  let savedBG = localStorage.getItem('bg') || 'gradient';
-  bgSelect.value = savedBG;
-  applyBG(savedBG);
+  username.value=localStorage.getItem('username')||"";
+
+  let bg=localStorage.getItem('bg')||"gradient";
+  bgSelect.value=bg;
+  applyBG(bg);
 })();
 </script>
 
