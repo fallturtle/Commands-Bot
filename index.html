@@ -1,343 +1,844 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Artistry Hub Commands Bot</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Artistry Hub Commands Bot</title>
+  <link rel="icon" href="https://i.imgur.com/V033Fgt.png" type="image/png" />
+  <style>
+    :root {
+      --text: #fff;
+      --panel-bg: rgba(12, 12, 18, 0.72);
+      --glass: rgba(255, 255, 255, 0.16);
+      --glass-strong: rgba(255, 255, 255, 0.24);
+      --shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+      --radius: 16px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --nav-h: calc(70px + var(--safe-bottom));
+      --header-h: 84px;
+    }
 
-<link rel="icon" href="https://i.imgur.com/V033Fgt.png">
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
 
-<style>
-body {
-  margin:0;
-  font-family:sans-serif;
-  color:white;
-  overflow-x:hidden;
-}
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+      background: #111;
+    }
 
-/* THEMES */
-body.gradient {
-  background: linear-gradient(135deg,#ff0000,#ff0080,#8a2be2,#00bfff);
-  background-size:300% 300%;
-  animation: gradientMove 10s ease infinite;
-}
-body.dark { background:#0a0a0a; }
-body.light { background:#f5f5f5; color:#111; }
+    body.gradient {
+      background: linear-gradient(135deg, #ff0000, #ff0080, #8a2be2, #00bfff);
+      background-size: 300% 300%;
+      animation: gradientMove 10s ease infinite;
+      color: #fff;
+    }
 
-@keyframes gradientMove {
-  0%{background-position:0% 50%;}
-  50%{background-position:100% 50%;}
-  100%{background-position:0% 50%;}
-}
+    body.dark { background: #0a0a0a; color: #fff; }
+    body.light { background: #f5f5f5; color: #111; }
 
-/* HEADER */
-.header { text-align:center; padding:15px; }
-.header h1 { font-size:22px; }
+    @keyframes gradientMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
 
-/* GRID */
-.container {
-  display:grid;
-  grid-template-columns: repeat(2,1fr);
-  gap:12px;
-  padding:15px;
-  padding-bottom:120px;
-}
+    #shader {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+    }
 
-.button {
-  height:70px;
-  border:none;
-  border-radius:14px;
-  background:rgba(255,255,255,0.2);
-  color:inherit;
-  font-size:14px;
-  position:relative;
-}
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: var(--header-h) 1fr;
+    }
 
-/* NAV */
-.side {
-  position:fixed;
-  bottom:10px;
-  left:50%;
-  transform:translateX(-50%);
-  display:flex;
-  gap:18px;
-}
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
 
-.side button {
-  width:55px;
-  height:55px;
-  border-radius:50%;
-  border:none;
-  background:rgba(255,255,255,0.25);
-}
+    .header h1 {
+      margin: 0;
+      font-size: clamp(1.1rem, 2.8vw + 0.5rem, 1.8rem);
+      font-weight: 700;
+      line-height: 1.2;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
 
-/* PANELS */
-.panel {
-  position:fixed;
-  left:0;
-  top:0;
-  width:100%;
-  height:100%;
-  background:rgba(0,0,0,0.95);
-  padding:20px;
-  display:none;
-  overflow-y:auto;
-}
-.panel.open { display:block; }
+    .content {
+      overflow-y: auto;
+      padding: 8px 14px calc(var(--nav-h) + 24px);
+    }
 
-.panel input, .panel select {
-  width:100%;
-  padding:10px;
-  margin-bottom:10px;
-}
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin: 6px 0 14px;
+    }
 
-/* STATUS */
-.status {
-  position:fixed;
-  bottom:80px;
-  right:10px;
-  background:black;
-  padding:10px;
-  border-radius:8px;
-}
+    .chip {
+      border: 0;
+      color: inherit;
+      border-radius: 999px;
+      background: var(--glass);
+      backdrop-filter: blur(12px);
+      padding: 9px 12px;
+      font-size: 0.9rem;
+      box-shadow: var(--shadow);
+      max-width: 66vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-/* POPUP */
-.popup {
-  position:fixed;
-  top:15px;
-  right:15px;
-  background:rgba(0,0,0,0.8);
-  padding:8px 12px;
-  border-radius:8px;
-  display:none;
-}
-</style>
+    .status {
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      padding: 9px 12px;
+      font-size: 0.85rem;
+      backdrop-filter: blur(8px);
+      box-shadow: var(--shadow);
+      white-space: nowrap;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 11px;
+    }
+
+    @media (min-width: 680px) {
+      .container { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    @media (min-width: 980px) {
+      .container { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      :root { --header-h: 96px; }
+    }
+
+    .button {
+      position: relative;
+      min-height: 78px;
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--glass);
+      backdrop-filter: blur(14px);
+      color: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      overflow: hidden;
+      padding: 12px;
+      box-shadow: var(--shadow);
+      transition: transform 0.16s ease, background 0.2s ease;
+      text-wrap: balance;
+    }
+
+    .button:active { transform: scale(0.98); }
+    .button:disabled { opacity: 0.7; cursor: not-allowed; }
+
+    .cooldown-bar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0%;
+      background: rgba(255, 255, 255, 0.2);
+      pointer-events: none;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--nav-h);
+      padding: 8px 12px calc(8px + var(--safe-bottom));
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      background: rgba(8, 8, 14, 0.72);
+      backdrop-filter: blur(16px);
+      z-index: 30;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .nav-btn {
+      border: 0;
+      border-radius: 14px;
+      background: var(--glass);
+      color: inherit;
+      font-size: 1.1rem;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .panel-wrap {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      pointer-events: none;
+    }
+
+    .panel-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.42);
+      opacity: 0;
+      transition: opacity 0.22s ease;
+    }
+
+    .panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: min(78vh, 700px);
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border-top-left-radius: 22px;
+      border-top-right-radius: 22px;
+      box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.45);
+      transform: translateY(102%);
+      transition: transform 0.25s ease;
+      padding: 16px 16px calc(16px + var(--safe-bottom));
+      overflow-y: auto;
+      color: #fff;
+    }
+
+    .panel h3 { margin: 6px 0 10px; }
+
+    .panel-wrap.open {
+      pointer-events: auto;
+    }
+
+    .panel-wrap.open .panel-overlay {
+      opacity: 1;
+    }
+
+    .panel-wrap.open .panel {
+      transform: translateY(0);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 12px;
+      margin-bottom: 9px;
+      font-size: 0.95rem;
+      background: #fff;
+      color: #111;
+    }
+
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+
+    .btn {
+      border: 0;
+      border-radius: 12px;
+      background: var(--glass-strong);
+      color: #fff;
+      font-weight: 700;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+
+    .url-item {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 9px;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+    }
+
+    .url-item.active { border-color: #00ffc3; }
+
+    .url-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .muted { opacity: 0.78; font-size: 0.85rem; word-break: break-all; }
+
+    .history-item, .error-item {
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 0.92rem;
+    }
+
+    .popup {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 60;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      padding: 10px 13px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .footer {
+      text-align: center;
+      opacity: 0.8;
+      margin: 14px 0 0;
+      font-size: 0.78rem;
+    }
+  </style>
 </head>
+<body>
+  <canvas id="shader"></canvas>
 
-<body class="gradient">
+  <div class="app">
+    <header class="header">
+      <h1 id="title">🎨 Artistry Hub Commands Bot</h1>
+    </header>
 
-<div class="header">
-<h1 id="title">🎨 Artistry Hub Commands Bot</h1>
-</div>
+    <main class="content">
+      <div class="toolbar">
+        <button class="chip" id="activeChip" onclick="openPanel('settings')">🎯 Active: None</button>
+        <div class="status" id="status">⚪ Idle</div>
+      </div>
 
-<div class="container" id="buttons"></div>
+      <div class="container" id="buttons"></div>
+      <div class="footer">Artistry Hub © 2026</div>
+    </main>
+  </div>
 
-<div class="side">
-<button onclick="togglePanel('settings')">⚙️</button>
-<button onclick="togglePanel('history')">📜</button>
-<button onclick="togglePanel('errors')">⚠️</button>
-<button onclick="togglePanel('help')">❓</button>
-<button onclick="togglePanel('sendPanel')">✉️</button>
-</div>
+  <nav class="bottom-nav">
+    <button class="nav-btn" onclick="openPanel('settings')">⚙️</button>
+    <button class="nav-btn" onclick="openPanel('history')">📜</button>
+    <button class="nav-btn" onclick="openPanel('errors')">⚠️</button>
+    <button class="nav-btn" onclick="openPanel('help')">❓</button>
+    <button class="nav-btn" onclick="openPanel('sendPanel')">✉️</button>
+  </nav>
 
-<!-- SETTINGS -->
-<div id="settings" class="panel">
-<button onclick="togglePanel('settings')">Close</button>
-<h3>Settings</h3>
+  <div class="panel-wrap" id="panelWrap" onclick="overlayClose(event)">
+    <div class="panel-overlay"></div>
 
-<input id="siteTitle" placeholder="Site Title">
-<input id="username" placeholder="Username">
+    <section class="panel" id="settings">
+      <div class="row">
+        <button class="btn" onclick="closePanels()">Close</button>
+        <button class="btn" onclick="saveSettings()">Save</button>
+      </div>
+      <h3>Settings</h3>
+      <input id="siteTitle" placeholder="Site title" />
+      <input id="username" placeholder="Username" />
 
-<input id="urlName" placeholder="Name">
-<input id="urlValue" placeholder="Webhook URL">
-<button onclick="saveURL()">Save URL</button>
+      <h3>Destination Profiles</h3>
+      <input id="urlName" placeholder="Profile name (ex: Main Chat)" />
+      <input id="urlValue" placeholder="Apps Script Web App URL" />
+      <button class="btn" onclick="saveURL()">Save Profile</button>
 
-<select id="urlSelect" onchange="selectURL()"></select>
-<div id="urlList"></div>
-</div>
+      <select id="urlSelect" onchange="selectURL()"></select>
+      <div id="urlList"></div>
 
-<!-- SEND -->
-<div id="sendPanel" class="panel">
-<button onclick="togglePanel('sendPanel')">Close</button>
-<h3>Send Message</h3>
+      <div class="row">
+        <button class="btn" onclick="exportURLs()">📤 Export</button>
+        <label class="btn" style="text-align:center;display:block;">
+          📥 Import
+          <input type="file" accept="application/json" onchange="importURLs(event)" style="display:none" />
+        </label>
+      </div>
 
-<select id="sendUrlSelect"></select>
-<input id="panelMessage" placeholder="Type message...">
-<button onclick="sendPanelMessage()">Send</button>
-</div>
+      <h3>Theme</h3>
+      <select id="bgSelect" onchange="changeBG(this.value)">
+        <option value="gradient">Gradient</option>
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="hue">Hue</option>
+        <option value="equinox">Equinox</option>
+        <option value="interference">Interference</option>
+        <option value="boxes">Boxes</option>
+        <option value="aurora">Aurora</option>
+      </select>
+    </section>
 
-<!-- HISTORY -->
-<div id="history" class="panel">
-<button onclick="togglePanel('history')">Close</button>
-<h3>History</h3>
-<button onclick="clearHistory()">🗑 Clear</button>
-<div id="historyList"></div>
-</div>
+    <section class="panel" id="history">
+      <div class="row">
+        <button class="btn" onclick="closePanels()">Close</button>
+        <button class="btn" onclick="clearHistory()">🗑 Clear</button>
+      </div>
+      <h3>History</h3>
+      <div id="historyList"></div>
+    </section>
 
-<!-- ERRORS -->
-<div id="errors" class="panel">
-<button onclick="togglePanel('errors')">Close</button>
-<h3>Errors</h3>
-<div id="errorList"></div>
-</div>
+    <section class="panel" id="errors">
+      <div class="row"><button class="btn" onclick="closePanels()">Close</button></div>
+      <h3>Errors</h3>
+      <div id="errorList"></div>
+    </section>
 
-<!-- HELP -->
-<div id="help" class="panel">
-<button onclick="togglePanel('help')">Close</button>
-<h3>📖 Help</h3>
-<p>Use Settings to add webhook URLs.</p>
-<p>Select a chat, then press buttons or send messages.</p>
-</div>
+    <section class="panel" id="help">
+      <div class="row"><button class="btn" onclick="closePanels()">Close</button></div>
+      <h3>📖 User Manual</h3>
+      <p>1) Add your Apps Script URLs as profiles in Settings.</p>
+      <p>2) Select the active profile (where commands are sent).</p>
+      <p>3) Tap command buttons. History shows exactly where each command was sent.</p>
+      <p>4) Use ✉️ to send a custom text message command.</p>
+    </section>
 
-<div id="status" class="status">⚪ Idle</div>
-<div id="popup" class="popup">Sent!</div>
+    <section class="panel" id="sendPanel">
+      <div class="row"><button class="btn" onclick="closePanels()">Close</button></div>
+      <h3>Send a Message</h3>
+      <select id="sendUrlSelect"></select>
+      <input type="text" id="panelMessage" placeholder="Type your message..." />
+      <button class="btn" onclick="sendPanelMessage()">Send</button>
+    </section>
+  </div>
 
-<script>
-// ================= BUTTONS =================
-const cmds=[
-"run","help","deny","random","fact","quote","challenge","riddle",
-"trivia","joke","schedule","word","poll"
-];
+  <div id="popup" class="popup">Sent!</div>
 
-const labels=[
-"▶ Run","❓ Help","⛔ Deny","🎲 Random","📚 Fact","💬 Quote","🎨 Challenge",
-"🧠 Riddle","❗ Trivia","😂 Joke","📅 Schedule","📖 Word","📊 Poll"
-];
+  <script>
+    const cmds = ["seturl","run","help","deny","random","fact","quote","challenge","riddle","trivia","joke","schedule","word","poll","errors"];
+    const labels = ["🔧 Set URL","▶ Run","❓ Help","⛔ Deny","🎲 Random","📚 Fact","💬 Quote","🎨 Challenge","🧠 Riddle","❗ Trivia","😂 Joke","📅 Schedule","📖 Word","📊 Poll","⚠️ Errors"];
 
-const container=document.getElementById('buttons');
+    const container = document.getElementById('buttons');
+    const panelWrap = document.getElementById('panelWrap');
+    const allPanels = ['settings','history','errors','help','sendPanel'];
 
-cmds.forEach((c,i)=>{
-  let b=document.createElement('button');
-  b.className='button';
-  b.innerText=labels[i];
-  b.onclick=()=>send(c);
-  container.appendChild(b);
-});
+    cmds.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'button';
+      b.innerText = labels[i];
+      const bar = document.createElement('div');
+      bar.className = 'cooldown-bar';
+      b.appendChild(bar);
+      b.onclick = () => clickCmd(c, b, bar);
+      container.appendChild(b);
+    });
 
-// ================= URL SYSTEM =================
-function saveURL(){
-  let urls=JSON.parse(localStorage.getItem('urls')||'{}');
-  urls[urlName.value]=urlValue.value;
-  localStorage.setItem('urls',JSON.stringify(urls));
-  loadURLs();
-}
+    function setStatus(text) {
+      const el = document.getElementById('status');
+      el.innerText = text;
+      if (text.includes('Success') || text.includes('Sent!')) {
+        setTimeout(() => el.innerText = '⚪ Idle', 1800);
+      }
+    }
 
-function loadURLs(){
-  let urls=JSON.parse(localStorage.getItem('urls')||'{}');
+    function showPopup(msg='Sent!') {
+      popup.textContent = msg;
+      popup.style.display = 'block';
+      setTimeout(() => popup.style.display = 'none', 1300);
+    }
 
-  urlSelect.innerHTML='';
-  sendUrlSelect.innerHTML='';
-  urlList.innerHTML='';
+    function getUsername() {
+      return localStorage.getItem('username') || 'Unknown';
+    }
 
-  for(let name in urls){
-    let opt=document.createElement('option');
-    opt.value=name;
-    opt.textContent=name;
-    urlSelect.appendChild(opt);
+    function getUrls() {
+      try {
+        return JSON.parse(localStorage.getItem('urls') || '{}');
+      } catch {
+        return {};
+      }
+    }
 
-    let opt2=document.createElement('option');
-    opt2.value=urls[name];
-    opt2.textContent=name;
-    sendUrlSelect.appendChild(opt2);
+    function saveURL() {
+      const name = urlName.value.trim();
+      const value = urlValue.value.trim();
+      if (!name || !value) return showPopup('Name + URL required');
 
-    let div=document.createElement('div');
-    div.innerText=name;
-    div.onclick=()=>setActiveURL(name);
-    urlList.appendChild(div);
-  }
-}
+      const urls = getUrls();
+      urls[name] = value;
+      localStorage.setItem('urls', JSON.stringify(urls));
 
-function setActiveURL(name){
-  let urls=JSON.parse(localStorage.getItem('urls'));
-  localStorage.setItem('url',urls[name]);
-}
+      if (!localStorage.getItem('activeName')) setActiveURL(name);
+      loadURLs();
+      urlName.value = '';
+      urlValue.value = '';
+      showPopup('Saved profile');
+    }
 
-function selectURL(){
-  setActiveURL(urlSelect.value);
-}
+    function loadURLs() {
+      const urls = getUrls();
+      const active = localStorage.getItem('activeName');
 
-// ================= SEND =================
-function send(cmd){
-  let url=localStorage.getItem('url');
-  if(!url){ setStatus('🔴 No URL'); return; }
+      urlList.innerHTML = '';
+      urlSelect.innerHTML = '';
+      sendUrlSelect.innerHTML = '';
 
-  setStatus('🟡 Sending...');
-  fetch(url+"?action="+cmd)
-  .then(()=>success(cmd))
-  .catch(()=>success(cmd));
-}
+      Object.entries(urls).forEach(([name, url]) => {
+        const o1 = new Option(name, name);
+        const o2 = new Option(name, url);
+        if (name === active) {
+          o1.selected = true;
+          o2.selected = true;
+        }
+        urlSelect.add(o1);
+        sendUrlSelect.add(o2);
 
-function sendPanelMessage(){
-  let msg=panelMessage.value.trim();
-  if(!msg) return;
+        const div = document.createElement('div');
+        div.className = 'url-item' + (name === active ? ' active' : '');
+        div.innerHTML = `
+          <div class="url-head">
+            <strong>${escapeHtml(name)}</strong>
+            <div class="row" style="flex:0;gap:6px">
+              <button class="btn" onclick="event.stopPropagation();editURL('${encodeURIComponent(name)}')">✏️</button>
+              <button class="btn" onclick="event.stopPropagation();deleteURL('${encodeURIComponent(name)}')">🗑</button>
+            </div>
+          </div>
+          <div class="muted">${escapeHtml(url)}</div>
+        `;
+        div.onclick = () => setActiveURL(name);
+        urlList.appendChild(div);
+      });
 
-  let url=sendUrlSelect.value;
-  if(!url){ setStatus('🔴 No URL'); return; }
+      updateActiveChip();
+    }
 
-  setStatus('🟡 Sending...');
-  fetch(url+"?action=message&text="+encodeURIComponent(msg))
-  .then(()=>{
-    success("message");
-    panelMessage.value='';
-  })
-  .catch(()=>{
-    success("message");
-    panelMessage.value='';
-  });
-}
+    function updateActiveChip() {
+      const active = localStorage.getItem('activeName') || 'None';
+      activeChip.textContent = `🎯 Active: ${active}`;
+    }
 
-function success(cmd){
-  setStatus('🟢 Success');
-  popup.style.display='block';
-  logHistory(cmd);
+    function setActiveURL(name) {
+      const urls = getUrls();
+      if (!urls[name]) return;
+      localStorage.setItem('activeName', name);
+      localStorage.setItem('url', urls[name]);
+      loadURLs();
+      showPopup(`Active: ${name}`);
+    }
 
-  setTimeout(()=>popup.style.display='none',1500);
-  setTimeout(()=>setStatus('⚪ Idle'),2000);
-}
+    function selectURL() {
+      if (urlSelect.value) setActiveURL(urlSelect.value);
+    }
 
-// ================= HISTORY =================
-function logHistory(cmd){
-  let h=JSON.parse(localStorage.getItem('history')||'[]');
-  h.unshift(cmd+" • "+new Date().toLocaleTimeString());
-  localStorage.setItem('history',JSON.stringify(h));
-  renderHistory();
-}
+    function deleteURL(nameEncoded) {
+      const name = decodeURIComponent(nameEncoded);
+      const urls = getUrls();
+      delete urls[name];
+      localStorage.setItem('urls', JSON.stringify(urls));
 
-function renderHistory(){
-  historyList.innerHTML='';
-  (JSON.parse(localStorage.getItem('history')||'[]')).forEach(e=>{
-    let d=document.createElement('div');
-    d.innerText=e;
-    historyList.appendChild(d);
-  });
-}
+      if (localStorage.getItem('activeName') === name) {
+        localStorage.removeItem('activeName');
+        localStorage.removeItem('url');
+        const first = Object.keys(urls)[0];
+        if (first) setActiveURL(first);
+      }
+      loadURLs();
+    }
 
-function clearHistory(){
-  localStorage.removeItem('history');
-  renderHistory();
-}
+    function editURL(nameEncoded) {
+      const name = decodeURIComponent(nameEncoded);
+      const urls = getUrls();
+      if (!urls[name]) return;
+      urlName.value = name;
+      urlValue.value = urls[name];
+      openPanel('settings');
+    }
 
-// ================= ERRORS =================
-function logError(err){
-  let e=JSON.parse(localStorage.getItem('errors')||'[]');
-  e.unshift(err.toString());
-  localStorage.setItem('errors',JSON.stringify(e));
-  renderErrors();
-}
+    function importURLs(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = x => {
+        try {
+          const parsed = JSON.parse(x.target.result);
+          if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid');
+          localStorage.setItem('urls', JSON.stringify(parsed));
+          const first = Object.keys(parsed)[0];
+          if (first) setActiveURL(first);
+          loadURLs();
+          showPopup('Import successful');
+        } catch {
+          showPopup('Invalid JSON');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
 
-function renderErrors(){
-  errorList.innerHTML='';
-  (JSON.parse(localStorage.getItem('errors')||'[]')).forEach(e=>{
-    let d=document.createElement('div');
-    d.innerText=e;
-    errorList.appendChild(d);
-  });
-}
+    function exportURLs() {
+      const blob = new Blob([localStorage.getItem('urls') || '{}'], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'urls.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
 
-// ================= UI =================
-function togglePanel(id){
-  document.getElementById(id).classList.toggle('open');
-}
+    function clickCmd(cmd, button, bar) {
+      if (cmd === 'seturl') return openPanel('settings');
+      if (cmd === 'errors') return openPanel('errors');
+      sendCommand(cmd, button, bar);
+    }
 
-function setStatus(t){
-  document.getElementById('status').innerText=t;
-}
+    async function sendCommand(cmd, button, bar) {
+      const url = localStorage.getItem('url');
+      const activeName = localStorage.getItem('activeName') || 'None';
+      if (!url) return setStatus('🔴 No URL');
 
-// ================= INIT =================
-loadURLs();
-renderHistory();
-renderErrors();
-</script>
+      setStatus('🟡 Sending...');
+      try {
+        await safeFetch(`${url}?action=${encodeURIComponent(cmd)}`);
+        setStatus('🟢 Success');
+        showPopup('Sent!');
+        logHistory(cmd, activeName);
+        startCooldown(button, bar);
+      } catch (err) {
+        logError(err);
+        setStatus('🔴 Failed');
+      }
+    }
 
+    function startCooldown(button, bar) {
+      button.disabled = true;
+      let w = 0;
+      const t = setInterval(() => {
+        w += 2;
+        bar.style.width = `${w}%`;
+        if (w >= 100) {
+          clearInterval(t);
+          button.disabled = false;
+          bar.style.width = '0%';
+        }
+      }, 45);
+    }
+
+    function logHistory(cmd, destination) {
+      const list = JSON.parse(localStorage.getItem('history') || '[]');
+      const item = {
+        user: getUsername(),
+        cmd,
+        destination,
+        at: new Date().toLocaleString()
+      };
+      list.unshift(item);
+      localStorage.setItem('history', JSON.stringify(list.slice(0, 200)));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      historyList.innerHTML = '';
+      const list = JSON.parse(localStorage.getItem('history') || '[]');
+      list.forEach(item => {
+        const d = document.createElement('div');
+        d.className = 'history-item';
+        d.textContent = `${item.user} • ${item.cmd} • sent to: ${item.destination} • ${item.at}`;
+        historyList.appendChild(d);
+      });
+    }
+
+    function clearHistory() {
+      localStorage.removeItem('history');
+      renderHistory();
+      showPopup('History cleared');
+    }
+
+    function logError(err) {
+      const list = JSON.parse(localStorage.getItem('errors') || '[]');
+      list.unshift(String(err));
+      localStorage.setItem('errors', JSON.stringify(list.slice(0, 150)));
+      renderErrors();
+    }
+
+    function renderErrors() {
+      errorList.innerHTML = '';
+      const list = JSON.parse(localStorage.getItem('errors') || '[]');
+      list.forEach(item => {
+        const d = document.createElement('div');
+        d.className = 'error-item';
+        d.textContent = item;
+        errorList.appendChild(d);
+      });
+    }
+
+    function saveSettings() {
+      localStorage.setItem('title', siteTitle.value.trim() || '🎨 Artistry Hub Commands Bot');
+      localStorage.setItem('username', username.value.trim());
+      localStorage.setItem('bg', bgSelect.value);
+      title.innerText = localStorage.getItem('title');
+      applyBG(bgSelect.value);
+      closePanels();
+      showPopup('Settings saved');
+    }
+
+    function changeBG(bg) {
+      localStorage.setItem('bg', bg);
+      applyBG(bg);
+    }
+
+    function openPanel(id) {
+      allPanels.forEach(p => {
+        document.getElementById(p).style.display = (p === id ? 'block' : 'none');
+      });
+      panelWrap.classList.add('open');
+    }
+
+    function closePanels() {
+      panelWrap.classList.remove('open');
+    }
+
+    function overlayClose(e) {
+      if (e.target.classList.contains('panel-overlay')) closePanels();
+    }
+
+    async function sendPanelMessage() {
+      const message = panelMessage.value.trim();
+      if (!message) return;
+      const url = sendUrlSelect.value || localStorage.getItem('url');
+      const destination = sendUrlSelect.options[sendUrlSelect.selectedIndex]?.text || localStorage.getItem('activeName') || 'None';
+      if (!url) return setStatus('🔴 No URL');
+
+      setStatus('🟡 Sending...');
+      try {
+        await safeFetch(`${url}?action=message&text=${encodeURIComponent(message)}`);
+        setStatus('🟢 Sent!');
+        logHistory('message', destination);
+        panelMessage.value = '';
+        showPopup('Message sent');
+      } catch (err) {
+        logError(err);
+        setStatus('🔴 Failed');
+      }
+    }
+
+    function safeFetch(url) {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 9000);
+      return fetch(url, { method: 'GET', mode: 'cors', signal: ctrl.signal })
+        .then(r => {
+          clearTimeout(timeout);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.text();
+        })
+        .catch(err => {
+          clearTimeout(timeout);
+          throw err;
+        });
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    const canvas = document.getElementById('shader');
+    const ctx = canvas.getContext('2d');
+    let anim;
+
+    function fitCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', fitCanvas);
+
+    function applyBG(bg) {
+      cancelAnimationFrame(anim);
+      fitCanvas();
+      document.body.style.color = '#fff';
+      document.body.classList.remove('gradient', 'dark', 'light');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (bg === 'gradient') { document.body.classList.add('gradient'); return; }
+      if (bg === 'dark') { document.body.classList.add('dark'); return; }
+      if (bg === 'light') { document.body.classList.add('light'); document.body.style.color = '#111'; return; }
+
+      if (bg === 'equinox' || bg === 'interference' || bg === 'boxes' || bg === 'aurora') {
+        document.body.style.color = '#111';
+      }
+
+      runShader(bg);
+    }
+
+    function runShader(type) {
+      let t = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (type === 'hue') {
+          for (let y = 0; y < canvas.height; y += 4) {
+            const hue = (y + t * 50) % 360;
+            ctx.fillStyle = `hsl(${hue},100%,60%)`;
+            ctx.fillRect(0, y, canvas.width, 4);
+          }
+        } else if (type === 'equinox') {
+          for (let i = 0; i < 50; i++) {
+            const x = Math.sin(i + t) * 200 + canvas.width / 2;
+            const y = Math.cos(i + t * 0.8) * 200 + canvas.height / 2;
+            ctx.fillStyle = `hsla(${i * 10},100%,60%,0.2)`;
+            ctx.beginPath();
+            ctx.arc(x, y, 150, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (type === 'interference') {
+          for (let x = 0; x < canvas.width; x += 7) {
+            for (let y = 0; y < canvas.height; y += 7) {
+              const v = Math.sin(x * 0.02 + t) + Math.cos(y * 0.02 + t);
+              const hue = (v * 120 + 200) % 360;
+              ctx.fillStyle = `hsl(${hue},100%,60%)`;
+              ctx.fillRect(x, y, 6, 6);
+            }
+          }
+        } else if (type === 'boxes') {
+          for (let i = 0; i < 40; i++) {
+            const x = (i * 60 + t * 100) % canvas.width;
+            const y = (i * 40 + t * 80) % canvas.height;
+            const hue = (i * 30 + t * 100) % 360;
+            ctx.fillStyle = `hsla(${hue},100%,60%,0.3)`;
+            ctx.fillRect(x, y, 120, 80);
+          }
+        } else if (type === 'aurora') {
+          for (let i = 0; i < 8; i++) {
+            const y = canvas.height * (i / 8);
+            const wave = Math.sin(t * 2 + i) * 40;
+            const grad = ctx.createLinearGradient(0, y + wave, canvas.width, y - wave);
+            grad.addColorStop(0, `hsla(${(i * 40 + t * 120) % 360}, 95%, 60%, 0.15)`);
+            grad.addColorStop(1, `hsla(${(i * 50 + t * 90 + 120) % 360}, 95%, 50%, 0.15)`);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, y, canvas.width, canvas.height / 8 + 50);
+          }
+        }
+
+        t += 0.01;
+        anim = requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    (function init() {
+      loadURLs();
+      renderHistory();
+      renderErrors();
+
+      const savedTitle = localStorage.getItem('title') || '🎨 Artistry Hub Commands Bot';
+      title.innerText = savedTitle;
+      siteTitle.value = savedTitle;
+      username.value = localStorage.getItem('username') || '';
+
+      const savedBG = localStorage.getItem('bg') || 'gradient';
+      bgSelect.value = savedBG;
+      applyBG(savedBG);
+
+      allPanels.forEach(p => document.getElementById(p).style.display = 'none');
+    })();
+  </script>
 </body>
 </html>
