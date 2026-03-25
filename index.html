@@ -53,14 +53,6 @@ body.light { background:#f5f5f5; color:#111; }
   position:relative;
 }
 
-.cooldown-bar {
-  position:absolute;
-  top:0; left:0;
-  height:100%;
-  width:0%;
-  background:rgba(255,255,255,0.2);
-}
-
 /* NAV */
 .side {
   position:fixed;
@@ -125,7 +117,7 @@ body.light { background:#f5f5f5; color:#111; }
 <body class="gradient">
 
 <div class="header">
-<h1 id="title">🎨 Artistry Hub</h1>
+<h1 id="title">🎨 Artistry Hub Commands Bot</h1>
 </div>
 
 <div class="container" id="buttons"></div>
@@ -134,6 +126,7 @@ body.light { background:#f5f5f5; color:#111; }
 <button onclick="togglePanel('settings')">⚙️</button>
 <button onclick="togglePanel('history')">📜</button>
 <button onclick="togglePanel('errors')">⚠️</button>
+<button onclick="togglePanel('help')">❓</button>
 <button onclick="togglePanel('sendPanel')">✉️</button>
 </div>
 
@@ -142,33 +135,48 @@ body.light { background:#f5f5f5; color:#111; }
 <button onclick="togglePanel('settings')">Close</button>
 <h3>Settings</h3>
 
+<input id="siteTitle" placeholder="Site Title">
+<input id="username" placeholder="Username">
+
 <input id="urlName" placeholder="Name">
 <input id="urlValue" placeholder="Webhook URL">
-<button onclick="saveURL()">Save</button>
+<button onclick="saveURL()">Save URL</button>
 
 <select id="urlSelect" onchange="selectURL()"></select>
+<div id="urlList"></div>
 </div>
 
-<!-- SEND PANEL -->
+<!-- SEND -->
 <div id="sendPanel" class="panel">
 <button onclick="togglePanel('sendPanel')">Close</button>
 <h3>Send Message</h3>
 
 <select id="sendUrlSelect"></select>
-<input id="panelMessage" placeholder="Message">
+<input id="panelMessage" placeholder="Type message...">
 <button onclick="sendPanelMessage()">Send</button>
 </div>
 
 <!-- HISTORY -->
 <div id="history" class="panel">
 <button onclick="togglePanel('history')">Close</button>
+<h3>History</h3>
+<button onclick="clearHistory()">🗑 Clear</button>
 <div id="historyList"></div>
 </div>
 
 <!-- ERRORS -->
 <div id="errors" class="panel">
 <button onclick="togglePanel('errors')">Close</button>
+<h3>Errors</h3>
 <div id="errorList"></div>
+</div>
+
+<!-- HELP -->
+<div id="help" class="panel">
+<button onclick="togglePanel('help')">Close</button>
+<h3>📖 Help</h3>
+<p>Use Settings to add webhook URLs.</p>
+<p>Select a chat, then press buttons or send messages.</p>
 </div>
 
 <div id="status" class="status">⚪ Idle</div>
@@ -176,14 +184,23 @@ body.light { background:#f5f5f5; color:#111; }
 
 <script>
 // ================= BUTTONS =================
-const cmds=["run","help","random","fact","quote","challenge","riddle","trivia","joke"];
+const cmds=[
+"run","help","deny","random","fact","quote","challenge","riddle",
+"trivia","joke","schedule","word","poll"
+];
+
+const labels=[
+"▶ Run","❓ Help","⛔ Deny","🎲 Random","📚 Fact","💬 Quote","🎨 Challenge",
+"🧠 Riddle","❗ Trivia","😂 Joke","📅 Schedule","📖 Word","📊 Poll"
+];
+
 const container=document.getElementById('buttons');
 
-cmds.forEach(c=>{
+cmds.forEach((c,i)=>{
   let b=document.createElement('button');
   b.className='button';
-  b.innerText=c;
-  b.onclick=()=>send(c,b);
+  b.innerText=labels[i];
+  b.onclick=()=>send(c);
   container.appendChild(b);
 });
 
@@ -197,8 +214,10 @@ function saveURL(){
 
 function loadURLs(){
   let urls=JSON.parse(localStorage.getItem('urls')||'{}');
+
   urlSelect.innerHTML='';
   sendUrlSelect.innerHTML='';
+  urlList.innerHTML='';
 
   for(let name in urls){
     let opt=document.createElement('option');
@@ -210,12 +229,21 @@ function loadURLs(){
     opt2.value=urls[name];
     opt2.textContent=name;
     sendUrlSelect.appendChild(opt2);
+
+    let div=document.createElement('div');
+    div.innerText=name;
+    div.onclick=()=>setActiveURL(name);
+    urlList.appendChild(div);
   }
 }
 
-function selectURL(){
+function setActiveURL(name){
   let urls=JSON.parse(localStorage.getItem('urls'));
-  localStorage.setItem('url', urls[urlSelect.value]);
+  localStorage.setItem('url',urls[name]);
+}
+
+function selectURL(){
+  setActiveURL(urlSelect.value);
 }
 
 // ================= SEND =================
@@ -225,12 +253,8 @@ function send(cmd){
 
   setStatus('🟡 Sending...');
   fetch(url+"?action="+cmd)
-  .then(()=>{
-    success(cmd);
-  })
-  .catch(()=>{
-    success(cmd); // ignore fetch errors
-  });
+  .then(()=>success(cmd))
+  .catch(()=>success(cmd));
 }
 
 function sendPanelMessage(){
@@ -255,8 +279,49 @@ function sendPanelMessage(){
 function success(cmd){
   setStatus('🟢 Success');
   popup.style.display='block';
+  logHistory(cmd);
+
   setTimeout(()=>popup.style.display='none',1500);
   setTimeout(()=>setStatus('⚪ Idle'),2000);
+}
+
+// ================= HISTORY =================
+function logHistory(cmd){
+  let h=JSON.parse(localStorage.getItem('history')||'[]');
+  h.unshift(cmd+" • "+new Date().toLocaleTimeString());
+  localStorage.setItem('history',JSON.stringify(h));
+  renderHistory();
+}
+
+function renderHistory(){
+  historyList.innerHTML='';
+  (JSON.parse(localStorage.getItem('history')||'[]')).forEach(e=>{
+    let d=document.createElement('div');
+    d.innerText=e;
+    historyList.appendChild(d);
+  });
+}
+
+function clearHistory(){
+  localStorage.removeItem('history');
+  renderHistory();
+}
+
+// ================= ERRORS =================
+function logError(err){
+  let e=JSON.parse(localStorage.getItem('errors')||'[]');
+  e.unshift(err.toString());
+  localStorage.setItem('errors',JSON.stringify(e));
+  renderErrors();
+}
+
+function renderErrors(){
+  errorList.innerHTML='';
+  (JSON.parse(localStorage.getItem('errors')||'[]')).forEach(e=>{
+    let d=document.createElement('div');
+    d.innerText=e;
+    errorList.appendChild(d);
+  });
 }
 
 // ================= UI =================
@@ -270,6 +335,8 @@ function setStatus(t){
 
 // ================= INIT =================
 loadURLs();
+renderHistory();
+renderErrors();
 </script>
 
 </body>
