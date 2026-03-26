@@ -299,6 +299,32 @@
       display: none;
     }
 
+    .auth-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(6px);
+    }
+
+    .auth-card {
+      width: min(430px, 100%);
+      background: var(--panel-bg);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      color: #fff;
+    }
+
+    .auth-note {
+      opacity: 0.86;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
     .footer {
       text-align: center;
       opacity: 0.8;
@@ -364,6 +390,7 @@
       </div>
 
       <h3>Theme</h3>
+      <input id="accessPassword" type="password" placeholder="Shared access password" />
       <select id="bgSelect" onchange="changeBG(this.value)">
         <option value="gradient">Gradient</option>
         <option value="dark">Dark</option>
@@ -409,6 +436,17 @@
     </section>
   </div>
 
+  <div class="auth-gate" id="authGate">
+    <div class="auth-card">
+      <h3>🔐 Access Required</h3>
+      <p class="auth-note" id="authNote">Enter shared password to use commands.</p>
+      <input id="authInput" type="password" placeholder="Shared password" />
+      <div class="row">
+        <button class="btn" onclick="unlockWithPassword()">Unlock</button>
+      </div>
+    </div>
+  </div>
+
   <div id="popup" class="popup">Sent!</div>
 
   <script>
@@ -418,6 +456,9 @@
     const container = document.getElementById('buttons');
     const panelWrap = document.getElementById('panelWrap');
     const allPanels = ['settings','history','errors','help','sendPanel'];
+    const AUTH_CONFIG_KEY = 'sharedAccessPassword';
+    const AUTH_UNLOCK_KEY = 'sharedAccessUnlocked';
+    const AUTH_TOKEN_KEY = 'sharedAccessToken';
 
     cmds.forEach((c, i) => {
       const b = document.createElement('button');
@@ -442,6 +483,52 @@
       popup.textContent = msg;
       popup.style.display = 'block';
       setTimeout(() => popup.style.display = 'none', 1300);
+    }
+
+    function getConfiguredPassword() {
+      return localStorage.getItem(AUTH_CONFIG_KEY) || '';
+    }
+
+    function isUnlocked() {
+      return sessionStorage.getItem(AUTH_UNLOCK_KEY) === '1';
+    }
+
+    function requireUnlock() {
+      return !!getConfiguredPassword();
+    }
+
+    function openAuthGate(msg='Enter shared password to use commands.') {
+      authNote.textContent = msg;
+      authInput.value = '';
+      authGate.style.display = 'grid';
+    }
+
+    function closeAuthGate() {
+      authGate.style.display = 'none';
+    }
+
+    function ensureUnlockedOrPrompt() {
+      if (!requireUnlock()) return true;
+      if (isUnlocked()) return true;
+      openAuthGate();
+      return false;
+    }
+
+    function unlockWithPassword() {
+      const entered = authInput.value;
+      const expected = getConfiguredPassword();
+      if (!expected) {
+        closeAuthGate();
+        return;
+      }
+      if (entered !== expected) {
+        showPopup('Wrong password');
+        return;
+      }
+      sessionStorage.setItem(AUTH_UNLOCK_KEY, '1');
+      sessionStorage.setItem(AUTH_TOKEN_KEY, entered);
+      closeAuthGate();
+      showPopup('Unlocked');
     }
 
     function getUsername() {
@@ -582,6 +669,7 @@
     }
 
     function clickCmd(cmd, button, bar) {
+      if (!ensureUnlockedOrPrompt()) return;
       if (cmd === 'seturl') return openPanel('settings');
       if (cmd === 'errors') return openPanel('errors');
       sendCommand(cmd, button, bar);
@@ -671,6 +759,11 @@
       localStorage.setItem('title', siteTitle.value.trim() || '🎨 Artistry Hub Commands Bot');
       localStorage.setItem('username', username.value.trim());
       localStorage.setItem('bg', bgSelect.value);
+      localStorage.setItem(AUTH_CONFIG_KEY, accessPassword.value);
+      if (!accessPassword.value) {
+        sessionStorage.removeItem(AUTH_UNLOCK_KEY);
+        sessionStorage.removeItem(AUTH_TOKEN_KEY);
+      }
       title.innerText = localStorage.getItem('title');
       applyBG(bgSelect.value);
       closePanels();
@@ -698,6 +791,7 @@
     }
 
     async function sendPanelMessage() {
+      if (!ensureUnlockedOrPrompt()) return;
       const message = panelMessage.value.trim();
       if (!message) return;
       const url = sendUrlSelect.value || localStorage.getItem('url');
@@ -718,12 +812,16 @@
     }
 
     function safeFetch(url) {
+      const authToken = sessionStorage.getItem(AUTH_TOKEN_KEY) || '';
+      const urlObj = new URL(url, window.location.href);
+      if (authToken) urlObj.searchParams.set('auth', authToken);
+
       const ctrl = new AbortController();
       const timeout = setTimeout(() => ctrl.abort(), 15000);
 
       // Apps Script web-app endpoints often fail CORS preflight/reads from static hosts.
       // We only need to dispatch commands, so use no-cors fire-and-forget semantics.
-      return fetch(url, { method: 'GET', mode: 'no-cors', signal: ctrl.signal, cache: 'no-store' })
+      return fetch(urlObj.toString(), { method: 'GET', mode: 'no-cors', signal: ctrl.signal, cache: 'no-store' })
         .then(() => {
           clearTimeout(timeout);
           return true;
@@ -838,10 +936,15 @@
       title.innerText = savedTitle;
       siteTitle.value = savedTitle;
       username.value = localStorage.getItem('username') || '';
+      accessPassword.value = getConfiguredPassword();
 
       const savedBG = localStorage.getItem('bg') || 'gradient';
       bgSelect.value = savedBG;
       applyBG(savedBG);
+
+      if (requireUnlock() && !isUnlocked()) {
+        openAuthGate();
+      }
 
       allPanels.forEach(p => document.getElementById(p).style.display = 'none');
     })();
