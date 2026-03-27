@@ -151,6 +151,9 @@
 
     .button:active { transform: scale(0.98); }
     .button:disabled { opacity: 0.7; cursor: not-allowed; }
+    @media (hover: hover) and (pointer: fine) {
+      .button:hover { transform: scale(1.05); }
+    }
 
     .cooldown-bar {
       position: absolute;
@@ -186,6 +189,35 @@
       display: grid;
       place-items: center;
       cursor: pointer;
+    }
+
+    .side-dock {
+      display: none;
+      position: fixed;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 32;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 18px;
+      background: rgba(8, 8, 14, 0.72);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: var(--shadow);
+    }
+
+    .side-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      border: 0;
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      color: inherit;
+      cursor: pointer;
+      font-size: 1.2rem;
     }
 
     .panel-wrap {
@@ -332,6 +364,36 @@
       font-size: 0.78rem;
     }
 
+    @media (min-width: 980px) {
+      .content {
+        padding: 10px 88px 40px;
+      }
+
+      .toolbar,
+      .container {
+        max-width: 1120px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .side-dock { display: flex; }
+      .bottom-nav { display: none; }
+
+      .panel {
+        left: 92px;
+        right: auto;
+        bottom: 20px;
+        width: min(430px, 46vw);
+        max-height: calc(100vh - 40px);
+        border-radius: 22px;
+        transform: translateX(-170%);
+      }
+
+      .panel-wrap.open .panel {
+        transform: translateX(0);
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -360,6 +422,14 @@
     <button class="nav-btn" onclick="openPanel('help')">❓</button>
     <button class="nav-btn" onclick="openPanel('sendPanel')">✉️</button>
   </nav>
+
+  <aside class="side-dock">
+    <button class="side-btn" onclick="openPanel('settings')">⚙️</button>
+    <button class="side-btn" onclick="openPanel('history')">📜</button>
+    <button class="side-btn" onclick="openPanel('errors')">⚠️</button>
+    <button class="side-btn" onclick="openPanel('help')">❓</button>
+    <button class="side-btn" onclick="openPanel('sendPanel')">✉️</button>
+  </aside>
 
   <div class="panel-wrap" id="panelWrap" onclick="overlayClose(event)">
     <div class="panel-overlay"></div>
@@ -815,24 +885,41 @@
       const authToken = sessionStorage.getItem(AUTH_TOKEN_KEY) || '';
       const urlObj = new URL(url, window.location.href);
       if (authToken) urlObj.searchParams.set('auth', authToken);
+      const callbackName = `jsonp_req_${Date.now()}_${Math.floor(Math.random() * 9999)}`;
+      urlObj.searchParams.set('callback', callbackName);
 
-      const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 15000);
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error('Request timed out. Check deployment URL, web app access, or internet.'));
+        }, 15000);
 
-      // Apps Script web-app endpoints often fail CORS preflight/reads from static hosts.
-      // We only need to dispatch commands, so use no-cors fire-and-forget semantics.
-      return fetch(urlObj.toString(), { method: 'GET', mode: 'no-cors', signal: ctrl.signal, cache: 'no-store' })
-        .then(() => {
+        const script = document.createElement('script');
+
+        function cleanup() {
           clearTimeout(timeout);
-          return true;
-        })
-        .catch(err => {
-          clearTimeout(timeout);
-          if (err?.name === 'AbortError') {
-            throw new Error('Request timed out. Check deployment URL, web app access, or internet.');
+          try { delete window[callbackName]; } catch {}
+          script.remove();
+        }
+
+        window[callbackName] = payload => {
+          cleanup();
+          if (!payload || payload.ok !== true) {
+            reject(new Error(payload?.error || 'Request failed'));
+            return;
           }
-          throw err;
-        });
+          resolve(payload);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('Network/script load failure.'));
+        };
+
+        script.src = urlObj.toString();
+        script.async = true;
+        document.body.appendChild(script);
+      });
     }
 
     function escapeHtml(str) {
