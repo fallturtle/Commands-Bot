@@ -168,7 +168,7 @@
       height: var(--nav-h);
       padding: 8px 12px calc(8px + var(--safe-bottom));
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 8px;
       background: rgba(8, 8, 14, 0.72);
       backdrop-filter: blur(16px);
@@ -357,7 +357,6 @@
     <button class="nav-btn" onclick="openPanel('settings')">⚙️</button>
     <button class="nav-btn" onclick="openPanel('history')">📜</button>
     <button class="nav-btn" onclick="openPanel('errors')">⚠️</button>
-    <button class="nav-btn" onclick="openPanel('notes')">📝</button>
     <button class="nav-btn" onclick="openPanel('help')">❓</button>
     <button class="nav-btn" onclick="openPanel('sendPanel')">✉️</button>
   </nav>
@@ -419,16 +418,6 @@
       <div id="errorList"></div>
     </section>
 
-    <section class="panel" id="notes">
-      <div class="row">
-        <button class="btn" onclick="closePanels()">Close</button>
-        <button class="btn" onclick="saveSharedNotes()">Save Notes</button>
-      </div>
-      <h3>📝 Shared Notes</h3>
-      <textarea id="sharedNotes" rows="9" placeholder="Shared notes for all owners/managers..."></textarea>
-      <div class="muted" id="notesMeta"></div>
-    </section>
-
     <section class="panel" id="help">
       <div class="row"><button class="btn" onclick="closePanels()">Close</button></div>
       <h3>📖 User Manual</h3>
@@ -466,11 +455,10 @@
 
     const container = document.getElementById('buttons');
     const panelWrap = document.getElementById('panelWrap');
-    const allPanels = ['settings','history','errors','notes','help','sendPanel'];
+    const allPanels = ['settings','history','errors','help','sendPanel'];
     const AUTH_CONFIG_KEY = 'sharedAccessPassword';
     const AUTH_UNLOCK_KEY = 'sharedAccessUnlocked';
     const AUTH_TOKEN_KEY = 'sharedAccessToken';
-    let sharedState = { history: [], errors: [], notes: '', notesUpdatedAt: '' };
 
     cmds.forEach((c, i) => {
       const b = document.createElement('button');
@@ -540,7 +528,6 @@
       sessionStorage.setItem(AUTH_UNLOCK_KEY, '1');
       sessionStorage.setItem(AUTH_TOKEN_KEY, entered);
       closeAuthGate();
-      readSharedState();
       showPopup('Unlocked');
     }
 
@@ -554,66 +541,6 @@
       } catch {
         return {};
       }
-    }
-
-    function getActiveEndpoint() {
-      return localStorage.getItem('url') || '';
-    }
-
-    function buildUrlWithParams(baseUrl, params) {
-      const u = new URL(baseUrl, window.location.href);
-      Object.entries(params).forEach(([k, v]) => {
-        if (v !== undefined && v !== null) u.searchParams.set(k, String(v));
-      });
-      return u.toString();
-    }
-
-    function readSharedState() {
-      const endpoint = getActiveEndpoint();
-      if (!endpoint) return;
-
-      const cb = `jsonp_shared_${Date.now()}_${Math.floor(Math.random() * 9999)}`;
-      const url = buildUrlWithParams(endpoint, {
-        action: 'shared_get',
-        auth: sessionStorage.getItem(AUTH_TOKEN_KEY) || '',
-        callback: cb
-      });
-
-      window[cb] = payload => {
-        try {
-          if (payload && payload.ok && payload.state) {
-            sharedState = payload.state;
-            renderHistory();
-            renderErrors();
-            sharedNotes.value = sharedState.notes || '';
-            notesMeta.textContent = sharedState.notesUpdatedAt
-              ? `Last updated: ${new Date(sharedState.notesUpdatedAt).toLocaleString()}`
-              : 'No shared notes yet.';
-          }
-        } finally {
-          delete window[cb];
-        }
-      };
-
-      const script = document.createElement('script');
-      script.src = url;
-      script.async = true;
-      script.onerror = () => {
-        delete window[cb];
-      };
-      document.body.appendChild(script);
-      setTimeout(() => script.remove(), 7000);
-    }
-
-    function writeShared(action, payload = {}) {
-      const endpoint = getActiveEndpoint();
-      if (!endpoint) return;
-      const url = buildUrlWithParams(endpoint, {
-        action,
-        auth: sessionStorage.getItem(AUTH_TOKEN_KEY) || '',
-        ...payload
-      });
-      fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' }).catch(() => {});
     }
 
     function saveURL() {
@@ -680,7 +607,6 @@
       localStorage.setItem('activeName', name);
       localStorage.setItem('url', urls[name]);
       loadURLs();
-      readSharedState();
       showPopup(`Active: ${name}`);
     }
 
@@ -762,7 +688,7 @@
         logHistory(cmd, activeName);
         startCooldown(button, bar);
       } catch (err) {
-        logError(err, { destination: activeName, cmd });
+        logError(err);
         setStatus('🔴 Failed');
       }
     }
@@ -791,15 +717,12 @@
       };
       list.unshift(item);
       localStorage.setItem('history', JSON.stringify(list.slice(0, 200)));
-      writeShared('shared_add_history', item);
       renderHistory();
     }
 
     function renderHistory() {
       historyList.innerHTML = '';
-      const list = (sharedState.history && sharedState.history.length)
-        ? sharedState.history
-        : JSON.parse(localStorage.getItem('history') || '[]');
+      const list = JSON.parse(localStorage.getItem('history') || '[]');
       list.forEach(item => {
         const d = document.createElement('div');
         d.className = 'history-item';
@@ -814,44 +737,22 @@
       showPopup('History cleared');
     }
 
-    function logError(err, meta = {}) {
+    function logError(err) {
       const list = JSON.parse(localStorage.getItem('errors') || '[]');
-      const item = {
-        user: getUsername(),
-        destination: meta.destination || localStorage.getItem('activeName') || 'None',
-        at: new Date().toLocaleString(),
-        message: String(err)
-      };
-      list.unshift(item);
+      list.unshift(String(err));
       localStorage.setItem('errors', JSON.stringify(list.slice(0, 150)));
-      writeShared('shared_add_error', item);
       renderErrors();
     }
 
     function renderErrors() {
       errorList.innerHTML = '';
-      const list = (sharedState.errors && sharedState.errors.length)
-        ? sharedState.errors
-        : JSON.parse(localStorage.getItem('errors') || '[]');
+      const list = JSON.parse(localStorage.getItem('errors') || '[]');
       list.forEach(item => {
         const d = document.createElement('div');
         d.className = 'error-item';
-        if (typeof item === 'string') {
-          d.textContent = item;
-        } else {
-          d.textContent = `${item.user || 'Unknown'} • ${item.destination || 'None'} • ${item.at || ''} • ${item.message || ''}`;
-        }
+        d.textContent = item;
         errorList.appendChild(d);
       });
-    }
-
-    function saveSharedNotes() {
-      const notes = sharedNotes.value || '';
-      sharedState.notes = notes;
-      sharedState.notesUpdatedAt = new Date().toISOString();
-      notesMeta.textContent = `Last updated: ${new Date(sharedState.notesUpdatedAt).toLocaleString()}`;
-      writeShared('shared_save_notes', { notes });
-      showPopup('Shared notes saved');
     }
 
     function saveSettings() {
@@ -905,7 +806,7 @@
         panelMessage.value = '';
         showPopup('Message sent');
       } catch (err) {
-        logError(err, { destination });
+        logError(err);
         setStatus('🔴 Failed');
       }
     }
@@ -1045,7 +946,6 @@
         openAuthGate();
       }
 
-      readSharedState();
       allPanels.forEach(p => document.getElementById(p).style.display = 'none');
     })();
   </script>
